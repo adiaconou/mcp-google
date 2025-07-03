@@ -1,5 +1,36 @@
 # Google Docs API Reference
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Document Read Operations](#document-read-operations)
+  - [Read Document Content](#read-document-content)
+  - [Get Document Metadata](#get-document-metadata)
+  - [Extract Plain Text](#extract-plain-text)
+- [Document Creation Operations](#document-creation-operations)
+  - [Create New Document](#create-new-document)
+  - [Create from Template](#create-from-template)
+- [Document Update Operations](#document-update-operations)
+  - [Update Document Content](#update-document-content)
+  - [Append Content](#append-content)
+  - [Insert at Position](#insert-at-position)
+- [Document Structure Operations](#document-structure-operations)
+  - [Insert Table](#insert-table)
+  - [Insert Image](#insert-image)
+- [Collaboration Features](#collaboration-features)
+  - [Add Comments](#add-comments)
+  - [Suggest Edits](#suggest-edits)
+- [Error Handling](#error-handling)
+  - [Common Error Codes](#common-error-codes)
+  - [Error Response Format](#error-response-format)
+- [Usage Examples](#usage-examples)
+  - [Meeting Notes Generation](#meeting-notes-generation)
+  - [Daily Journal Entry](#daily-journal-entry)
+  - [Report Generation](#report-generation)
+- [Rate Limits and Quotas](#rate-limits-and-quotas)
+- [Best Practices](#best-practices)
+- [Content Formatting Guidelines](#content-formatting-guidelines)
+
 ## Overview
 
 The Google Docs API module provides comprehensive document creation and manipulation capabilities, enabling AI agents to create, read, and update Google Docs for note-taking, content generation, and document management workflows.

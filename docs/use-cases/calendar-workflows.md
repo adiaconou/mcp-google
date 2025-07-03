@@ -1,5 +1,31 @@
 # Calendar Workflows and Use Cases
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Daily Schedule Management](#daily-schedule-management)
+  - [Morning Briefing Generation](#morning-briefing-generation)
+  - [Weekly Schedule Optimization](#weekly-schedule-optimization)
+- [Meeting Scheduling and Management](#meeting-scheduling-and-management)
+  - [Smart Meeting Scheduling](#smart-meeting-scheduling)
+  - [Meeting Preparation Assistant](#meeting-preparation-assistant)
+- [Event Planning and Coordination](#event-planning-and-coordination)
+  - [Recurring Event Management](#recurring-event-management)
+  - [Event Coordination Workflow](#event-coordination-workflow)
+- [Calendar Analytics and Insights](#calendar-analytics-and-insights)
+  - [Time Tracking and Analysis](#time-tracking-and-analysis)
+  - [Meeting Effectiveness Tracking](#meeting-effectiveness-tracking)
+- [Integration Workflows](#integration-workflows)
+  - [Email-Calendar Integration](#email-calendar-integration)
+  - [Task-Calendar Synchronization](#task-calendar-synchronization)
+- [Best Practices and Tips](#best-practices-and-tips)
+  - [Calendar Hygiene](#calendar-hygiene)
+  - [Automation Guidelines](#automation-guidelines)
+  - [Performance Optimization](#performance-optimization)
+- [Common Patterns and Templates](#common-patterns-and-templates)
+  - [Meeting Templates](#meeting-templates)
+  - [Time Zone Handling](#time-zone-handling)
+
 ## Overview
 
 This document outlines practical workflows and use cases for the Google Calendar API integration, demonstrating how AI agents can leverage calendar functionality for personal assistant applications.

@@ -1,5 +1,24 @@
 # Integration Examples and Cross-Service Workflows
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Daily Productivity Workflows](#daily-productivity-workflows)
+  - [Morning Productivity Briefing](#morning-productivity-briefing)
+  - [End-of-Day Wrap-up](#end-of-day-wrap-up)
+- [Project Management Integration](#project-management-integration)
+  - [Project Status Automation](#project-status-automation)
+- [Communication Automation](#communication-automation)
+  - [Email-Calendar Integration](#email-calendar-integration)
+- [Document Workflow Automation](#document-workflow-automation)
+  - [Email Attachment Processing](#email-attachment-processing)
+- [Analytics and Reporting](#analytics-and-reporting)
+  - [Cross-Service Analytics Dashboard](#cross-service-analytics-dashboard)
+- [Best Practices for Integration](#best-practices-for-integration)
+  - [Error Handling and Resilience](#error-handling-and-resilience)
+  - [Performance Optimization](#performance-optimization)
+  - [User Experience](#user-experience)
+
 ## Overview
 
 This document demonstrates real-world integration scenarios that combine multiple Google services through the MCP server, showcasing the power of cross-service automation for personal assistant applications.

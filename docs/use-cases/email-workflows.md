@@ -1,5 +1,27 @@
 # Email Workflows and Use Cases
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Email Triage and Management](#email-triage-and-management)
+  - [Intelligent Inbox Processing](#intelligent-inbox-processing)
+  - [Email Summarization and Insights](#email-summarization-and-insights)
+- [Email Automation and Responses](#email-automation-and-responses)
+  - [Smart Email Drafting](#smart-email-drafting)
+  - [Email Template Management](#email-template-management)
+- [Email Analytics and Insights](#email-analytics-and-insights)
+  - [Communication Pattern Analysis](#communication-pattern-analysis)
+  - [Email Sentiment and Relationship Tracking](#email-sentiment-and-relationship-tracking)
+- [Email Integration Workflows](#email-integration-workflows)
+  - [Email-to-Task Conversion](#email-to-task-conversion)
+  - [Email-Document Integration](#email-document-integration)
+- [Email Security and Compliance](#email-security-and-compliance)
+  - [Suspicious Email Detection](#suspicious-email-detection)
+- [Best Practices and Optimization](#best-practices-and-optimization)
+  - [Email Processing Efficiency](#email-processing-efficiency)
+  - [Privacy and Security](#privacy-and-security)
+  - [User Experience](#user-experience)
+
 ## Overview
 
 This document outlines practical workflows and use cases for the Gmail API integration, demonstrating how AI agents can leverage email functionality for personal assistant applications.

@@ -1,5 +1,29 @@
 # Google Drive API Reference
 
+## Table of Contents
+
+- [Overview](#overview)
+- [File Operations](#file-operations)
+  - [Read File Metadata](#read-file-metadata)
+  - [Download File Content](#download-file-content)
+  - [Search Files](#search-files)
+- [File Creation](#file-creation)
+  - [Upload File](#upload-file)
+  - [Create Empty File](#create-empty-file)
+- [Folder Operations](#folder-operations)
+  - [List Folder Contents](#list-folder-contents)
+  - [Get Folder Metadata](#get-folder-metadata)
+  - [Search Folders](#search-folders)
+  - [Create Folder](#create-folder)
+- [Error Handling](#error-handling)
+  - [Common Error Codes](#common-error-codes)
+  - [Error Response Format](#error-response-format)
+- [Usage Examples](#usage-examples)
+  - [Organizing Email Attachments](#organizing-email-attachments)
+  - [Document Management Workflow](#document-management-workflow)
+- [Rate Limits and Quotas](#rate-limits-and-quotas)
+- [Best Practices](#best-practices)
+
 ## Overview
 
 The Drive API module provides comprehensive file and folder management capabilities for Google Drive, enabling AI agents to read, create, organize, and search through user's Drive content.

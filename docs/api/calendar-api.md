@@ -1,5 +1,35 @@
 # Google Calendar API Reference
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Event Read Operations](#event-read-operations)
+  - [List Calendar Events](#list-calendar-events)
+  - [Get Event Details](#get-event-details)
+  - [Search Calendar Events](#search-calendar-events)
+- [Event Write Operations](#event-write-operations)
+  - [Create Calendar Event](#create-calendar-event)
+  - [Update Calendar Event](#update-calendar-event)
+  - [Delete Calendar Event](#delete-calendar-event)
+- [Calendar Management](#calendar-management)
+  - [List User Calendars](#list-user-calendars)
+  - [Get Calendar Metadata](#get-calendar-metadata)
+- [Recurring Events](#recurring-events)
+  - [Handle Recurring Events](#handle-recurring-events)
+  - [Update Recurring Event Instance](#update-recurring-event-instance)
+- [Free/Busy Information](#freebusy-information)
+  - [Check Availability](#check-availability)
+- [Error Handling](#error-handling)
+  - [Common Error Codes](#common-error-codes)
+  - [Error Response Format](#error-response-format)
+- [Usage Examples](#usage-examples)
+  - [Daily Schedule Generation](#daily-schedule-generation)
+  - [Meeting Scheduling](#meeting-scheduling)
+  - [Event Rescheduling](#event-rescheduling)
+- [Rate Limits and Quotas](#rate-limits-and-quotas)
+- [Best Practices](#best-practices)
+- [Time Zone Considerations](#time-zone-considerations)
+
 ## Overview
 
 The Calendar API module provides comprehensive calendar and event management capabilities, enabling AI agents to read, create, update, and organize calendar events across a user's Google Calendar accounts.
