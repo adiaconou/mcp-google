@@ -1,5 +1,39 @@
 # Google Sheets API Reference
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Sheet Read Operations](#sheet-read-operations)
+  - [Read Cell Range](#read-cell-range)
+  - [Read Multiple Ranges](#read-multiple-ranges)
+  - [Get Sheet Metadata](#get-sheet-metadata)
+- [Sheet Creation Operations](#sheet-creation-operations)
+  - [Create New Spreadsheet](#create-new-spreadsheet)
+  - [Create Additional Sheet](#create-additional-sheet)
+- [Sheet Update Operations](#sheet-update-operations)
+  - [Append Rows](#append-rows)
+  - [Update Cell Range](#update-cell-range)
+  - [Batch Update](#batch-update)
+- [Formatting Operations](#formatting-operations)
+  - [Apply Cell Formatting](#apply-cell-formatting)
+  - [Auto-resize Columns](#auto-resize-columns)
+- [Formula and Calculation Operations](#formula-and-calculation-operations)
+  - [Insert Formulas](#insert-formulas)
+  - [Recalculate Sheet](#recalculate-sheet)
+- [Data Analysis Operations](#data-analysis-operations)
+  - [Sort Range](#sort-range)
+  - [Filter Data](#filter-data)
+- [Error Handling](#error-handling)
+  - [Common Error Codes](#common-error-codes)
+  - [Error Response Format](#error-response-format)
+- [Usage Examples](#usage-examples)
+  - [Employee Database Management](#employee-database-management)
+  - [Financial Report Generation](#financial-report-generation)
+  - [Data Import and Processing](#data-import-and-processing)
+- [Rate Limits and Quotas](#rate-limits-and-quotas)
+- [Best Practices](#best-practices)
+- [Data Type Handling](#data-type-handling)
+
 ## Overview
 
 The Google Sheets API module provides comprehensive spreadsheet creation and manipulation capabilities, enabling AI agents to create, read, and update Google Sheets for data management, analysis, and reporting workflows.

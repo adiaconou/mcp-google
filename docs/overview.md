@@ -1,5 +1,19 @@
 # Google MCP Server Overview
 
+## Table of Contents
+
+- [Product Description](#product-description)
+- [Primary Goals](#primary-goals)
+- [Target Use Cases](#target-use-cases)
+  - [Calendar Management](#calendar-management)
+  - [Email Processing](#email-processing)
+  - [Document & File Management](#document--file-management)
+  - [Content Creation & Analysis](#content-creation--analysis)
+- [Architecture & Deployment](#architecture--deployment)
+  - [Stdio-Based MCP Implementation](#stdio-based-mcp-implementation)
+  - [Local-First Operation](#local-first-operation)
+- [Value Proposition](#value-proposition)
+
 ## Product Description
 
 The **Google MCP Server** is a secure, extensible middleware service that exposes a set of structured APIs over the [Model Control Protocol (MCP)](https://smithery.ai/mcp) for interacting with a user's **Google Drive**, **Gmail**, and **Google Calendar** accounts—along with **Google Docs** and **Sheets**. It is designed to support developers building **personal assistant applications**, enabling AI agents to read, write, and organize data across Google services without directly handling OAuth tokens or Google API complexity.

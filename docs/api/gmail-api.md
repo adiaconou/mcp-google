@@ -1,5 +1,29 @@
 # Gmail API Reference
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Email Metadata Operations](#email-metadata-operations)
+  - [Get Email Metadata](#get-email-metadata)
+  - [Get Email Body Content](#get-email-body-content)
+- [Email Search Operations](#email-search-operations)
+  - [Search Emails](#search-emails)
+- [Email Download Operations](#email-download-operations)
+  - [Download Email as EML](#download-email-as-eml)
+  - [Download Email Attachment](#download-email-attachment)
+- [Batch Operations](#batch-operations)
+  - [Batch Email Metadata](#batch-email-metadata)
+- [Error Handling](#error-handling)
+  - [Common Error Codes](#common-error-codes)
+  - [Error Response Format](#error-response-format)
+- [Usage Examples](#usage-examples)
+  - [Email Triage Workflow](#email-triage-workflow)
+  - [Attachment Processing](#attachment-processing)
+  - [Email Summarization](#email-summarization)
+- [Rate Limits and Quotas](#rate-limits-and-quotas)
+- [Best Practices](#best-practices)
+- [Security Considerations](#security-considerations)
+
 ## Overview
 
 The Gmail API module provides comprehensive email management capabilities, enabling AI agents to search, read, and download emails and attachments from a user's Gmail account.

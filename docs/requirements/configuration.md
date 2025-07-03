@@ -1,5 +1,43 @@
 # Configuration Guide
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Initial Setup](#initial-setup)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Development Setup](#development-setup)
+  - [TypeScript Development Requirements](#typescript-development-requirements)
+  - [TypeScript Configuration](#typescript-configuration)
+  - [Build Scripts](#build-scripts)
+- [Configuration Files](#configuration-files)
+  - [Main Configuration](#main-configuration)
+  - [Environment Variables](#environment-variables)
+  - [Logging Configuration](#logging-configuration)
+- [Authentication Setup](#authentication-setup)
+  - [OAuth 2.0 Configuration](#oauth-20-configuration)
+  - [Initial Authentication](#initial-authentication)
+- [Service Configuration](#service-configuration)
+  - [Gmail Configuration](#gmail-configuration)
+  - [Calendar Configuration](#calendar-configuration)
+  - [Drive Configuration](#drive-configuration)
+  - [Docs Configuration](#docs-configuration)
+  - [Sheets Configuration](#sheets-configuration)
+- [Performance Configuration](#performance-configuration)
+  - [Caching Settings](#caching-settings)
+  - [Rate Limiting](#rate-limiting)
+- [Integration Configuration](#integration-configuration)
+  - [MCP Client Configuration](#mcp-client-configuration)
+  - [Custom MCP Client](#custom-mcp-client)
+- [Monitoring and Debugging](#monitoring-and-debugging)
+  - [Local Monitoring](#local-monitoring)
+- [Troubleshooting](#troubleshooting)
+  - [Common Configuration Issues](#common-configuration-issues)
+  - [Debug Configuration](#debug-configuration)
+- [Security Configuration](#security-configuration)
+  - [Encryption Settings](#encryption-settings)
+  - [Access Control](#access-control)
+
 ## Overview
 
 This document provides comprehensive configuration guidance for the Google MCP Server, including setup, authentication, and customization options for personal assistant integrations.

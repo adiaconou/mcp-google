@@ -1,5 +1,41 @@
 # Google MCP Server Architecture
 
+## Table of Contents
+
+- [System Architecture](#system-architecture)
+- [Component Overview](#component-overview)
+  - [MCP Stdio Interface Layer](#mcp-stdio-interface-layer)
+  - [Authentication & Security Layer](#authentication--security-layer)
+  - [Google API Wrapper Layer](#google-api-wrapper-layer)
+  - [Service Modules](#service-modules)
+- [TypeScript Architecture](#typescript-architecture)
+  - [Type Safety & API Contracts](#type-safety--api-contracts)
+  - [Configuration Schema Validation](#configuration-schema-validation)
+  - [Module Architecture](#module-architecture)
+- [Security & Authentication](#security--authentication)
+  - [OAuth 2.0 Implementation](#oauth-20-implementation)
+  - [Token Management](#token-management)
+  - [Access Control](#access-control)
+  - [Privacy Guarantees](#privacy-guarantees)
+- [Deployment](#deployment)
+  - [Installation Options](#installation-options)
+  - [Initial Setup Process](#initial-setup-process)
+  - [Runtime Requirements](#runtime-requirements)
+  - [Development Stack](#development-stack)
+  - [Configuration](#configuration)
+- [Error Handling & Resilience](#error-handling--resilience)
+  - [TypeScript Error Handling Patterns](#typescript-error-handling-patterns)
+  - [Retry Logic](#retry-logic)
+  - [Error States](#error-states)
+  - [Monitoring](#monitoring)
+- [Performance Characteristics](#performance-characteristics)
+  - [Response Times](#response-times)
+  - [Resource Usage](#resource-usage)
+- [Extensibility](#extensibility)
+  - [Adding New Google Services](#adding-new-google-services)
+  - [Custom Integrations](#custom-integrations)
+  - [Development Benefits](#development-benefits)
+
 ## System Architecture
 
 ```

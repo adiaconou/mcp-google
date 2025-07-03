@@ -1,5 +1,26 @@
 # Drive and Document Workflows
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Document Organization and Management](#document-organization-and-management)
+  - [Intelligent File Organization](#intelligent-file-organization)
+  - [Duplicate File Detection and Management](#duplicate-file-detection-and-management)
+- [Document Creation and Automation](#document-creation-and-automation)
+  - [Automated Report Generation](#automated-report-generation)
+  - [Template-Based Document Creation](#template-based-document-creation)
+- [Data Analysis and Visualization](#data-analysis-and-visualization)
+  - [Spreadsheet Data Processing](#spreadsheet-data-processing)
+- [Collaboration and Sharing](#collaboration-and-sharing)
+  - [Document Collaboration Workflows](#document-collaboration-workflows)
+- [Backup and Archival](#backup-and-archival)
+  - [Automated Backup System](#automated-backup-system)
+- [Best Practices and Optimization](#best-practices-and-optimization)
+  - [Performance Optimization](#performance-optimization)
+  - [Organization Strategies](#organization-strategies)
+  - [Security and Compliance](#security-and-compliance)
+  - [User Experience](#user-experience)
+
 ## Overview
 
 This document outlines practical workflows and use cases for Google Drive, Docs, and Sheets API integration, demonstrating how AI agents can leverage document management and creation capabilities for personal assistant applications.
