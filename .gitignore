@@ -11,6 +11,9 @@ dist/
 .env.local
 .env.production
 
+# Config
+config/
+
 # IDE files
 .vscode/
 .idea/
