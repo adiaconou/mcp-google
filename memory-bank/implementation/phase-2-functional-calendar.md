@@ -42,8 +42,8 @@ Before starting Phase 2 implementation, the user must complete these setup tasks
 - Enable immediate testing and user feedback
 
 ## Implementation Steps
-1. ☐ Create minimal MCP type definitions for protocol basics
-2. ☐ Implement basic tool registry for calendar tools only
+1. ☑ Create minimal MCP type definitions for protocol basics
+2. ☑ Implement basic tool registry for calendar tools only
 3. ☐ Add simple OAuth manager for Calendar API scope
 4. ☐ Create Calendar API client with event operations
 5. ☐ Implement `calendar_list_events` tool with filtering
