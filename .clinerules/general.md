@@ -119,6 +119,49 @@ flowchart TD
 
 Note: When triggered by **update memory bank**, I MUST review every memory bank file, even if some don't require updates. Focus particularly on activeContext.md and progress.md as they track current state.
 
+## Google MCP Server Project Intelligence
+
+### Critical Implementation Patterns
+1. **MCP Protocol First**: Always implement MCP protocol layer before Google API integration
+2. **Incremental Phases**: Follow strict phase order - Foundation → MCP → OAuth → Google APIs
+3. **Type Safety**: Use TypeScript strict mode with comprehensive type definitions
+4. **Error Handling**: Implement discriminated unions for type-safe error handling
+5. **Modular Services**: Each Google service as independent module with consistent interface
+
+### Key Technical Decisions
+- **Stdio Transport**: MCP communication via stdin/stdout only (no HTTP server)
+- **Local-First**: All processing local, no external dependencies or telemetry
+- **OAuth 2.0 + PKCE**: Secure authentication with encrypted token storage
+- **Service Interface Pattern**: Consistent GoogleService interface for all APIs
+- **Tool Registry**: Dynamic tool registration and discovery system
+
+### Development Workflow
+1. **Memory Bank First**: Always read memory bank before starting work
+2. **Phase Discipline**: Complete current phase before moving to next
+3. **Test-Driven**: Write tests for all core functionality
+4. **Documentation**: Update memory bank after significant changes
+5. **Incremental**: Small, focused changes with validation
+
+### Known Challenges
+- **MCP SDK Integration**: Requires careful stdio transport setup
+- **OAuth Complexity**: Browser-based flow with temporary HTTP server
+- **Google API Rate Limits**: Need retry logic and circuit breakers
+- **Token Management**: Secure storage with automatic refresh
+- **Error Handling**: Comprehensive error scenarios across all services
+
+### Project-Specific Patterns
+- **Tool Naming**: Use `{service}_{action}` pattern (e.g., `calendar_list_events`)
+- **Configuration**: Zod schemas for runtime validation
+- **Service Registry**: Central registration for all Google services
+- **Auth Manager**: Single point for OAuth token management
+- **Circuit Breaker**: Prevent cascading failures in API calls
+
+### Current Phase Focus (Phase 2)
+- **Priority**: MCP protocol implementation with stdio transport
+- **Next Files**: `src/types/mcp.ts`, enhanced `src/server.ts`
+- **Success Criteria**: MCP client communication working
+- **Testing**: Unit tests for tool registry and message handling
+
 ## Project Intelligence (.clinerules)
 
 The .clinerules file is my learning journal for each project. It captures important patterns, preferences, and project intelligence that help me work more effectively. As I work with you and the project, I'll discover and document key insights that aren't obvious from the code alone.
