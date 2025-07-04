@@ -1,510 +1,392 @@
 # Phase 4: Google API Integration (PLANNED)
 
 ## Overview
-This phase implements comprehensive Google API integrations, creating MCP tools for Calendar, Gmail, Drive, Docs, and Sheets services. Each service is implemented as an independent module with consistent patterns and error handling.
+Implement comprehensive Google API integrations creating MCP tools for Calendar, Gmail, Drive, Docs, and Sheets services. This phase delivers the core functionality that enables AI agents to interact with Google services through a unified, secure, and performant interface.
 
 ## Objectives
-1. [ ] Implement Calendar API service and MCP tools
-2. [ ] Implement Gmail API service and MCP tools
-3. [ ] Implement Drive API service and MCP tools
-4. [ ] Implement Docs API service and MCP tools
-5. [ ] Implement Sheets API service and MCP tools
-6. [ ] Add service registry and management system
-7. [ ] Implement comprehensive error handling and retry logic
-8. [ ] Add caching and performance optimization
-9. [ ] Create comprehensive service tests
-10. [ ] Add end-to-end integration tests
+- Implement Calendar API service with comprehensive event management tools
+- Implement Gmail API service with email management and search capabilities
+- Implement Drive API service with file management and sharing tools
+- Implement Docs API service with document creation and editing tools
+- Implement Sheets API service with spreadsheet manipulation tools
+- Add service registry and management system for dynamic service loading
+- Implement comprehensive error handling and retry logic with circuit breakers
+- Add caching and performance optimization for API responses
+- Create comprehensive service unit and integration tests
+- Add end-to-end workflow tests across multiple services
 
-## Implementation Priority
+## Implementation Steps
+1. ☐ Create base Google API client with authentication integration
+2. ☐ Implement service registry for dynamic service management
+3. ☐ Create Calendar service with event management tools
+4. ☐ Add Calendar API client wrapper with error handling
+5. ☐ Implement Gmail service with email management tools
+6. ☐ Add Gmail API client with message parsing utilities
+7. ☐ Create Drive service with file management tools
+8. ☐ Add Drive API client with upload/download capabilities
+9. ☐ Implement Docs service with document manipulation tools
+10. ☐ Add Docs API client with formatting and content management
+11. ☐ Create Sheets service with spreadsheet tools
+12. ☐ Add Sheets API client with data manipulation capabilities
+13. ☐ Implement comprehensive error handling and retry logic
+14. ☐ Add API response caching and performance optimization
+15. ☐ Create service health monitoring and circuit breakers
+16. ☐ Add comprehensive unit tests for all services
+17. ☐ Create integration tests with mock Google APIs
+18. ☐ Add end-to-end workflow tests
+19. ☐ Implement performance benchmarking and optimization
+20. ☐ Add service configuration and feature flags
 
-### Priority 1: Calendar API
-**Business Value**: High - Essential for scheduling and time management
-**Complexity**: Medium - Well-defined API with clear use cases
-**Dependencies**: OAuth authentication (Phase 3)
+## Implementation Plan
 
-### Priority 2: Gmail API
-**Business Value**: High - Critical for email management and communication
-**Complexity**: High - Complex message structure and attachment handling
-**Dependencies**: OAuth authentication, potentially Drive API for attachments
+### Step 1: Create Base Google API Client
+**Files**: `src/services/base/googleApiClient.ts`
+- Create abstract GoogleAPIClient base class
+- Add authentication integration with OAuth manager
+- Implement retry logic with exponential backoff
+- Add rate limiting and circuit breaker patterns
+- Create error handling and logging integration
+- Add performance monitoring and metrics collection
 
-### Priority 3: Drive API
-**Business Value**: Medium - Important for file management and storage
-**Complexity**: Medium - File operations with metadata and permissions
-**Dependencies**: OAuth authentication
+### Step 2: Implement Service Registry
+**Files**: `src/services/serviceRegistry.ts`
+- Create ServiceRegistry class for dynamic service management
+- Add service registration and discovery methods
+- Implement service initialization and lifecycle management
+- Add service health checking and monitoring
+- Create service configuration management
+- Add tool aggregation from all registered services
 
-### Priority 4: Docs & Sheets APIs
-**Business Value**: Medium - Useful for document creation and data manipulation
-**Complexity**: High - Complex document structure and formatting
-**Dependencies**: OAuth authentication, potentially Drive API
+### Step 3: Create Calendar Service
+**Files**: `src/services/calendar/calendarService.ts`
+- Implement CalendarService class extending base service pattern
+- Add calendar list and selection functionality
+- Create event listing with filtering and pagination
+- Implement event creation with validation
+- Add event updating and deletion capabilities
+- Create free/busy time slot discovery
 
-## Calendar API Implementation
+### Step 4: Add Calendar API Client
+**Files**: `src/services/calendar/calendarClient.ts`
+- Create CalendarClient wrapper for Google Calendar API
+- Add authentication and scope management
+- Implement event CRUD operations with error handling
+- Add calendar metadata and settings management
+- Create recurring event handling
+- Add timezone and date/time utilities
 
-### Calendar Service Architecture
-```typescript
-class CalendarService implements GoogleService<CalendarConfig> {
-  readonly name = 'calendar';
-  readonly requiredScopes = ['https://www.googleapis.com/auth/calendar'];
+### Step 5: Implement Gmail Service
+**Files**: `src/services/gmail/gmailService.ts`
+- Create GmailService class with email management tools
+- Add message listing with advanced filtering
+- Implement message reading with content parsing
+- Create email sending with attachment support
+- Add label management and organization
+- Implement email search with complex queries
 
-  async initialize(auth: AuthManager, config: CalendarConfig): Promise<void> {
-    this.auth = auth;
-    this.config = config;
-    this.client = await this.createCalendarClient();
-  }
+### Step 6: Add Gmail API Client
+**Files**: `src/services/gmail/gmailClient.ts`
+- Create GmailClient wrapper for Gmail API
+- Add message parsing and content extraction
+- Implement attachment handling and processing
+- Add thread management and conversation tracking
+- Create draft management and sending
+- Add batch operations for efficiency
 
-  getTools(): MCPTool[] {
-    return [
-      this.createListEventsTools(),
-      this.createCreateEventTool(),
-      this.createUpdateEventTool(),
-      this.createDeleteEventTool(),
-      this.createFindFreeSlotsTools(),
-    ];
-  }
-}
-```
+### Step 7: Create Drive Service
+**Files**: `src/services/drive/driveService.ts`
+- Implement DriveService class with file management tools
+- Add file and folder listing with metadata
+- Create file upload with progress tracking
+- Implement file download and content retrieval
+- Add folder creation and organization
+- Create sharing and permission management
 
-### Calendar MCP Tools
-1. **`calendar_list_events`** - List calendar events with filtering
-2. **`calendar_create_event`** - Create new calendar events
-3. **`calendar_update_event`** - Update existing events
-4. **`calendar_delete_event`** - Delete calendar events
-5. **`calendar_find_free_slots`** - Find available time slots
+### Step 8: Add Drive API Client
+**Files**: `src/services/drive/driveClient.ts`
+- Create DriveClient wrapper for Google Drive API
+- Add file metadata management and search
+- Implement upload/download with resumable transfers
+- Add permission and sharing management
+- Create file versioning and revision handling
+- Add batch operations for multiple files
 
-### Calendar Implementation Files
-```
-src/services/calendar/
-├── calendarService.ts        # Main service implementation
-├── calendarClient.ts         # Google Calendar API client wrapper
-├── calendarTypes.ts          # Calendar-specific type definitions
-├── tools/
-│   ├── listEvents.ts         # List events tool
-│   ├── createEvent.ts        # Create event tool
-│   ├── updateEvent.ts        # Update event tool
-│   ├── deleteEvent.ts        # Delete event tool
-│   └── findFreeSlots.ts      # Find free slots tool
-└── __tests__/
-    ├── calendarService.test.ts
-    └── tools/
-        └── *.test.ts
-```
+### Step 9: Implement Docs Service
+**Files**: `src/services/docs/docsService.ts`
+- Create DocsService class with document manipulation tools
+- Add document creation from templates
+- Implement content reading and extraction
+- Create text insertion and formatting
+- Add document structure manipulation
+- Implement collaborative editing support
 
-## Gmail API Implementation
+### Step 10: Add Docs API Client
+**Files**: `src/services/docs/docsClient.ts`
+- Create DocsClient wrapper for Google Docs API
+- Add document structure parsing and manipulation
+- Implement batch request handling for efficiency
+- Add formatting and style management
+- Create content insertion and deletion
+- Add document revision and history management
 
-### Gmail Service Architecture
-```typescript
-class GmailService implements GoogleService<GmailConfig> {
-  readonly name = 'gmail';
-  readonly requiredScopes = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send'
-  ];
+### Step 11: Create Sheets Service
+**Files**: `src/services/sheets/sheetsService.ts`
+- Implement SheetsService class with spreadsheet tools
+- Add spreadsheet creation and management
+- Create cell reading and writing operations
+- Implement range operations and data manipulation
+- Add chart and pivot table creation
+- Create formula and calculation management
 
-  getTools(): MCPTool[] {
-    return [
-      this.createListMessagesTools(),
-      this.createGetMessageTool(),
-      this.createSendMessageTool(),
-      this.createSearchMessagesTool(),
-      this.createManageLabelsTool(),
-    ];
-  }
-}
-```
+### Step 12: Add Sheets API Client
+**Files**: `src/services/sheets/sheetsClient.ts`
+- Create SheetsClient wrapper for Google Sheets API
+- Add batch update operations for efficiency
+- Implement data validation and formatting
+- Add chart and visualization creation
+- Create conditional formatting management
+- Add spreadsheet sharing and collaboration
 
-### Gmail MCP Tools
-1. **`gmail_list_messages`** - List email messages with filters
-2. **`gmail_get_message`** - Get specific email message content
-3. **`gmail_send_message`** - Send new email messages
-4. **`gmail_search_messages`** - Search emails with complex queries
-5. **`gmail_manage_labels`** - Manage email labels and organization
+### Step 13: Implement Error Handling and Retry Logic
+**Files**: `src/services/base/errorHandler.ts`, `src/services/base/retryManager.ts`
+- Create comprehensive error classification system
+- Implement retry logic with exponential backoff
+- Add circuit breaker pattern for service protection
+- Create error recovery strategies
+- Add error logging and monitoring
+- Implement graceful degradation for service failures
 
-### Gmail Implementation Files
-```
-src/services/gmail/
-├── gmailService.ts           # Main service implementation
-├── gmailClient.ts            # Gmail API client wrapper
-├── gmailTypes.ts             # Gmail-specific type definitions
-├── messageParser.ts          # Email message parsing utilities
-├── attachmentHandler.ts      # Email attachment processing
-├── tools/
-│   ├── listMessages.ts       # List messages tool
-│   ├── getMessage.ts         # Get message tool
-│   ├── sendMessage.ts        # Send message tool
-│   ├── searchMessages.ts     # Search messages tool
-│   └── manageLabels.ts       # Manage labels tool
-└── __tests__/
-    └── ...
-```
+### Step 14: Add API Response Caching
+**Files**: `src/services/base/apiCache.ts`
+- Create intelligent caching system for API responses
+- Add cache invalidation strategies
+- Implement cache warming for frequently accessed data
+- Add cache statistics and monitoring
+- Create cache configuration and tuning
+- Add cache cleanup and memory management
 
-## Drive API Implementation
+### Step 15: Create Service Health Monitoring
+**Files**: `src/services/base/healthMonitor.ts`
+- Implement service health checking and status reporting
+- Add performance metrics collection and analysis
+- Create service availability monitoring
+- Add alerting for service degradation
+- Implement health dashboard and reporting
+- Add service dependency tracking
 
-### Drive Service Architecture
-```typescript
-class DriveService implements GoogleService<DriveConfig> {
-  readonly name = 'drive';
-  readonly requiredScopes = ['https://www.googleapis.com/auth/drive'];
+### Step 16: Add Service Unit Tests
+**Files**: `tests/unit/services/`
+- Create comprehensive unit tests for each service
+- Test tool registration and execution
+- Validate error handling and recovery
+- Test authentication integration
+- Add performance and load testing
+- Create mock implementations for testing
 
-  getTools(): MCPTool[] {
-    return [
-      this.createListFilesTool(),
-      this.createGetFileTool(),
-      this.createUploadFileTool(),
-      this.createCreateFolderTool(),
-      this.createManagePermissionsTool(),
-    ];
-  }
-}
-```
+### Step 17: Create Integration Tests
+**Files**: `tests/integration/services/`
+- Test complete service workflows with mock APIs
+- Validate cross-service interactions
+- Test error propagation and handling
+- Add authentication flow testing
+- Create performance and reliability tests
+- Test service registry and management
 
-### Drive MCP Tools
-1. **`drive_list_files`** - List Drive files and folders
-2. **`drive_get_file`** - Get file metadata and content
-3. **`drive_upload_file`** - Upload files to Drive
-4. **`drive_create_folder`** - Create new folders
-5. **`drive_manage_permissions`** - Manage file sharing permissions
+### Step 18: Add End-to-End Workflow Tests
+**Files**: `tests/e2e/workflows/`
+- Create realistic user workflow tests
+- Test multi-service operations
+- Validate data consistency across services
+- Add performance testing under load
+- Create user experience validation
+- Test error recovery in complex scenarios
 
-### Drive Implementation Files
-```
-src/services/drive/
-├── driveService.ts           # Main service implementation
-├── driveClient.ts            # Drive API client wrapper
-├── driveTypes.ts             # Drive-specific type definitions
-├── fileHandler.ts            # File upload/download utilities
-├── permissionManager.ts      # Permission management utilities
-├── tools/
-│   ├── listFiles.ts          # List files tool
-│   ├── getFile.ts            # Get file tool
-│   ├── uploadFile.ts         # Upload file tool
-│   ├── createFolder.ts       # Create folder tool
-│   └── managePermissions.ts  # Manage permissions tool
-└── __tests__/
-    └── ...
-```
+### Step 19: Implement Performance Optimization
+**Files**: `src/services/base/performance.ts`
+- Add performance monitoring and profiling
+- Implement request batching and optimization
+- Create connection pooling and reuse
+- Add response compression and optimization
+- Implement lazy loading and pagination
+- Create performance tuning and configuration
 
-## Docs & Sheets API Implementation
-
-### Docs Service Architecture
-```typescript
-class DocsService implements GoogleService<DocsConfig> {
-  readonly name = 'docs';
-  readonly requiredScopes = ['https://www.googleapis.com/auth/documents'];
-
-  getTools(): MCPTool[] {
-    return [
-      this.createCreateDocumentTool(),
-      this.createGetDocumentTool(),
-      this.createUpdateDocumentTool(),
-      this.createFormatDocumentTool(),
-    ];
-  }
-}
-```
-
-### Sheets Service Architecture
-```typescript
-class SheetsService implements GoogleService<SheetsConfig> {
-  readonly name = 'sheets';
-  readonly requiredScopes = ['https://www.googleapis.com/auth/spreadsheets'];
-
-  getTools(): MCPTool[] {
-    return [
-      this.createCreateSpreadsheetTool(),
-      this.createGetSpreadsheetTool(),
-      this.createUpdateCellsTool(),
-      this.createCreateChartTool(),
-    ];
-  }
-}
-```
-
-## Common Patterns and Utilities
-
-### Base Google API Client
-```typescript
-abstract class GoogleAPIClient<TClient> {
-  protected client: TClient | null = null;
-  
-  constructor(
-    protected auth: AuthManager,
-    protected config: any
-  ) {}
-
-  protected async getClient(): Promise<TClient> {
-    if (!this.client) {
-      await this.auth.ensureValidToken(this.requiredScopes);
-      this.client = await this.createClient();
-    }
-    return this.client;
-  }
-
-  protected abstract get requiredScopes(): string[];
-  protected abstract createClient(): Promise<TClient>;
-
-  async withRetry<T>(operation: () => Promise<T>): Promise<T> {
-    // Exponential backoff retry logic
-    // Rate limiting handling
-    // Error classification and recovery
-  }
-}
-```
-
-### Service Registry
-```typescript
-class ServiceRegistry {
-  private services = new Map<string, GoogleService>();
-
-  register(service: GoogleService): void {
-    this.services.set(service.name, service);
-  }
-
-  async initializeServices(auth: AuthManager, config: ServerConfig): Promise<void> {
-    for (const [name, service] of this.services) {
-      if (config.features[name]) {
-        await service.initialize(auth, config[name]);
-      }
-    }
-  }
-
-  getAllTools(): MCPTool[] {
-    const tools: MCPTool[] = [];
-    for (const service of this.services.values()) {
-      tools.push(...service.getTools());
-    }
-    return tools;
-  }
-}
-```
-
-## Error Handling and Resilience
-
-### Google API Error Handling
-```typescript
-class GoogleAPIError extends Error {
-  constructor(
-    public readonly code: number,
-    public readonly service: string,
-    message: string,
-    public readonly retryable: boolean = false
-  ) {
-    super(message);
-  }
-
-  static fromGoogleError(error: any, service: string): GoogleAPIError {
-    const code = error.code || error.status || 500;
-    const message = error.message || 'Unknown Google API error';
-    const retryable = code === 429 || code >= 500;
-    
-    return new GoogleAPIError(code, service, message, retryable);
-  }
-}
-```
-
-### Retry Logic with Circuit Breaker
-```typescript
-class RetryManager {
-  private circuitBreakers = new Map<string, CircuitBreaker>();
-
-  async executeWithRetry<T>(
-    operation: () => Promise<T>,
-    service: string,
-    maxRetries: number = 3
-  ): Promise<T> {
-    const circuitBreaker = this.getCircuitBreaker(service);
-    
-    return circuitBreaker.execute(async () => {
-      let lastError: Error;
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          return await operation();
-        } catch (error) {
-          lastError = error;
-          
-          if (!this.isRetryable(error) || attempt === maxRetries) {
-            throw error;
-          }
-          
-          await this.delay(Math.pow(2, attempt) * 1000);
-        }
-      }
-      
-      throw lastError!;
-    });
-  }
-}
-```
-
-## Performance Optimization
-
-### Caching Strategy
-```typescript
-class APIResponseCache {
-  private cache = new Map<string, CacheEntry>();
-  
-  async get<T>(key: string): Promise<T | null> {
-    const entry = this.cache.get(key);
-    if (entry && !this.isExpired(entry)) {
-      return entry.data as T;
-    }
-    return null;
-  }
-  
-  set<T>(key: string, data: T, ttl: number): void {
-    this.cache.set(key, {
-      data,
-      expiry: Date.now() + ttl,
-    });
-  }
-}
-```
-
-### Batch Operations
-```typescript
-class BatchOperationManager {
-  async batchCalendarEvents(
-    operations: CalendarOperation[]
-  ): Promise<CalendarOperationResult[]> {
-    // Group operations by type
-    // Execute in optimal batches
-    // Handle partial failures
-    // Return comprehensive results
-  }
-}
-```
-
-## Testing Strategy
-
-### Service Testing Pattern
-```typescript
-describe('CalendarService', () => {
-  let service: CalendarService;
-  let mockAuth: jest.Mocked<AuthManager>;
-  let mockClient: jest.Mocked<calendar_v3.Calendar>;
-
-  beforeEach(() => {
-    mockAuth = createMockAuthManager();
-    mockClient = createMockCalendarClient();
-    service = new CalendarService();
-  });
-
-  describe('listEvents', () => {
-    it('should return events successfully', async () => {
-      // Arrange
-      const mockEvents = [createMockEvent()];
-      mockClient.events.list.mockResolvedValue({ data: { items: mockEvents } });
-
-      // Act
-      const result = await service.listEvents({ maxResults: 10 });
-
-      // Assert
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toEqual(mockEvents);
-      }
-    });
-
-    it('should handle API errors gracefully', async () => {
-      // Test error scenarios
-      // Validate error handling
-      // Check retry logic
-    });
-  });
-});
-```
-
-### Integration Testing
-```typescript
-describe('Google API Integration', () => {
-  it('should complete end-to-end calendar workflow', async () => {
-    // Create event
-    // List events
-    // Update event
-    // Delete event
-    // Verify all operations
-  });
-
-  it('should handle authentication across services', async () => {
-    // Test multi-service authentication
-    // Verify scope management
-    // Test token refresh
-  });
-});
-```
-
-## Configuration and Feature Flags
-
-### Service Configuration
-```typescript
-const ServiceConfigSchema = z.object({
-  calendar: z.object({
-    enabled: z.boolean().default(true),
-    defaultCalendar: z.string().optional(),
-    maxResults: z.number().default(50),
-  }),
-  gmail: z.object({
-    enabled: z.boolean().default(true),
-    maxResults: z.number().default(20),
-    includeSpam: z.boolean().default(false),
-  }),
-  drive: z.object({
-    enabled: z.boolean().default(true),
-    uploadSizeLimit: z.number().default(100 * 1024 * 1024), // 100MB
-  }),
-  docs: z.object({
-    enabled: z.boolean().default(false),
-  }),
-  sheets: z.object({
-    enabled: z.boolean().default(false),
-  }),
-});
-```
+### Step 20: Add Service Configuration
+**Files**: `src/services/config/serviceConfig.ts`
+- Create service-specific configuration management
+- Add feature flags for service enablement
+- Implement service limits and quotas
+- Add service customization options
+- Create configuration validation and defaults
+- Add runtime configuration updates
 
 ## Success Criteria
 
 ### Functional Requirements
-- [ ] All Google services integrate successfully with MCP
-- [ ] Tools provide comprehensive functionality for each service
-- [ ] Error handling provides clear, actionable messages
-- [ ] Performance meets target response times
-- [ ] Caching reduces API call overhead
+- ☐ All Google services integrate successfully with MCP protocol
+- ☐ Tools provide comprehensive functionality for each service
+- ☐ Cross-service operations work seamlessly
+- ☐ Error handling provides clear, actionable messages
+- ☐ Performance meets target response times consistently
 
 ### Quality Requirements
-- [ ] 90%+ test coverage for all service implementations
-- [ ] Zero critical security vulnerabilities
-- [ ] Comprehensive error handling for all failure modes
-- [ ] Clean, maintainable code following established patterns
+- ☐ 95%+ test coverage for all service implementations
+- ☐ Zero critical security vulnerabilities in service code
+- ☐ Comprehensive error handling for all failure modes
+- ☐ Clean, maintainable code following established patterns
+- ☐ Performance benchmarks meet or exceed targets
 
 ### Integration Requirements
-- [ ] Seamless integration with MCP protocol layer
-- [ ] Consistent authentication across all services
-- [ ] Unified error handling and logging
-- [ ] Feature flags allow selective service enablement
+- ☐ Seamless integration with MCP protocol layer
+- ☐ Consistent authentication across all services
+- ☐ Unified error handling and logging
+- ☐ Feature flags allow selective service enablement
+- ☐ Service health monitoring and alerting
+
+## Key Files Created
+
+### Service Implementation Structure
+```
+src/services/
+├── base/
+│   ├── googleApiClient.ts    # Base API client with auth
+│   ├── errorHandler.ts       # Error handling framework
+│   ├── retryManager.ts       # Retry logic and circuit breakers
+│   ├── apiCache.ts           # API response caching
+│   ├── healthMonitor.ts      # Service health monitoring
+│   └── performance.ts        # Performance optimization
+├── calendar/
+│   ├── calendarService.ts    # Calendar service implementation
+│   ├── calendarClient.ts     # Calendar API client wrapper
+│   ├── calendarTypes.ts      # Calendar-specific types
+│   └── tools/                # Calendar MCP tools
+├── gmail/
+│   ├── gmailService.ts       # Gmail service implementation
+│   ├── gmailClient.ts        # Gmail API client wrapper
+│   ├── messageParser.ts      # Email message parsing
+│   └── tools/                # Gmail MCP tools
+├── drive/
+│   ├── driveService.ts       # Drive service implementation
+│   ├── driveClient.ts        # Drive API client wrapper
+│   ├── fileHandler.ts        # File upload/download utilities
+│   └── tools/                # Drive MCP tools
+├── docs/
+│   ├── docsService.ts        # Docs service implementation
+│   ├── docsClient.ts         # Docs API client wrapper
+│   └── tools/                # Docs MCP tools
+├── sheets/
+│   ├── sheetsService.ts      # Sheets service implementation
+│   ├── sheetsClient.ts       # Sheets API client wrapper
+│   └── tools/                # Sheets MCP tools
+├── serviceRegistry.ts        # Service registration and management
+└── config/
+    └── serviceConfig.ts      # Service configuration management
+```
+
+### MCP Tools by Service
+
+#### Calendar Tools
+- `calendar_list_events` - List calendar events with filtering
+- `calendar_create_event` - Create new calendar events
+- `calendar_update_event` - Update existing events
+- `calendar_delete_event` - Delete calendar events
+- `calendar_find_free_slots` - Find available time slots
+
+#### Gmail Tools
+- `gmail_list_messages` - List email messages with filters
+- `gmail_get_message` - Get specific email message content
+- `gmail_send_message` - Send new email messages
+- `gmail_search_messages` - Search emails with complex queries
+- `gmail_manage_labels` - Manage email labels and organization
+
+#### Drive Tools
+- `drive_list_files` - List Drive files and folders
+- `drive_get_file` - Get file metadata and content
+- `drive_upload_file` - Upload files to Drive
+- `drive_create_folder` - Create new folders
+- `drive_manage_permissions` - Manage file sharing permissions
+
+#### Docs Tools
+- `docs_create_document` - Create new documents
+- `docs_get_document` - Get document content
+- `docs_update_document` - Update document content
+- `docs_format_document` - Apply formatting to documents
+
+#### Sheets Tools
+- `sheets_create_spreadsheet` - Create new spreadsheets
+- `sheets_get_spreadsheet` - Get spreadsheet data
+- `sheets_update_cells` - Update cell values and ranges
+- `sheets_create_chart` - Create charts and visualizations
+
+## Performance Targets
+
+### Response Time Requirements
+- Service initialization: < 2 seconds
+- Tool discovery: < 100ms per service
+- Simple API operations: < 500ms
+- Complex operations: < 2 seconds
+- Batch operations: < 5 seconds
+
+### Throughput Requirements
+- Concurrent tool executions: 20+ simultaneous operations
+- API rate limit utilization: 80% of Google API limits
+- Cache hit ratio: 70%+ for frequently accessed data
+- Error rate: < 1% under normal conditions
+
+### Resource Usage Limits
+- Memory usage: < 200MB for all services
+- CPU usage: < 10% for idle operations
+- Network efficiency: Minimize redundant API calls
+- Storage usage: Efficient caching with cleanup
+
+## Testing Strategy
+
+### Unit Testing Approach
+- Test each service component in isolation
+- Mock all external API dependencies
+- Validate error handling and edge cases
+- Test performance characteristics
+- Ensure type safety and validation
+
+### Integration Testing Approach
+- Test service interactions with mock Google APIs
+- Validate authentication flows
+- Test error propagation across services
+- Verify performance under load
+- Test service registry and management
+
+### End-to-End Testing Approach
+- Test realistic user workflows
+- Validate cross-service operations
+- Test error recovery scenarios
+- Performance testing with real API calls
+- User experience validation
+
+## Risk Mitigation
+
+### Technical Risks
+- **API Rate Limits**: Implement intelligent rate limiting and backoff
+- **Service Dependencies**: Add circuit breakers and fallback mechanisms
+- **Data Consistency**: Implement proper error handling and rollback
+- **Performance Issues**: Regular benchmarking and optimization
+
+### Operational Risks
+- **Service Availability**: Health monitoring and alerting
+- **Configuration Errors**: Comprehensive validation and testing
+- **Security Issues**: Regular security audits and updates
+- **User Experience**: Clear error messages and documentation
 
 ## Deployment and Monitoring
 
-### Service Health Checks
-```typescript
-class ServiceHealthMonitor {
-  async checkServiceHealth(service: GoogleService): Promise<HealthStatus> {
-    try {
-      await service.validateToken();
-      return { status: 'healthy', service: service.name };
-    } catch (error) {
-      return { 
-        status: 'unhealthy', 
-        service: service.name, 
-        error: error.message 
-      };
-    }
-  }
-}
-```
+### Service Health Monitoring
+- Real-time service status and availability
+- Performance metrics and alerting
+- Error rate monitoring and analysis
+- Resource usage tracking and optimization
 
-### Performance Monitoring
-- API call latency tracking
-- Error rate monitoring
-- Token refresh frequency
-- Cache hit/miss ratios
-- Rate limit utilization
+### Configuration Management
+- Feature flags for service enablement
+- Service-specific configuration options
+- Runtime configuration updates
+- Configuration validation and rollback
 
 This phase delivers comprehensive Google API integration, providing users with powerful tools for managing their Google services through AI agents while maintaining security, performance, and reliability standards.
