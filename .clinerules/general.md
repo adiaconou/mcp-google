@@ -59,6 +59,14 @@ flowchart TD
 ### Implementation Plan
 Create an "implementation" folder which stores .md files for each step of your implementation plan for the project. Each plan file should outline which components will be built in that step. The entire plan should be broken into small, incremental steps that doesn't try to build too much at once - think of taking an agile approach and implement each project bit by bit, adding functionality in small pieces to keep it manageable.
 
+When you are in Plan mode, you will use the implementation files to guide your implementation plan. You are free to recommend improvements to make to the plan, but call them out and explain why you think it is important to adjust the plan.
+
+Each implementtation file should have the following structure:
+- **Overview**. A summary of what this phase of implementation accomplishes.
+- **Objectives**. A bullet-pointed list of each objective of this phase of the implementation.
+- **Implementation Steps**. A numbered list of each implementation step of this phase with a one line description of the step. Each phase should be broken into a number of smaller implementation steps to make implementation by you more management. Each step should be roughly one code commit. You will check off each step in this list as it is completed.
+- **Implementation Plan**. A detailed implementation definition of each step of the Implementation Steps.
+
 ### Additional Context
 Create additional files/folders within memory-bank/ when they help organize:
 - Complex feature documentation

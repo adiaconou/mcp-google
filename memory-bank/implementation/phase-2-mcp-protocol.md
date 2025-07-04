@@ -1,33 +1,47 @@
 # Phase 2: MCP Protocol Implementation (CURRENT)
 
 ## Overview
-This phase transforms the basic TypeScript server into a fully functional MCP server that can communicate with AI agents via stdio transport, register tools, and handle MCP protocol messages.
+Transform the basic TypeScript server into a fully functional MCP server that can communicate with AI agents via stdio transport. This phase implements the core MCP protocol layer, tool registry system, and message handling infrastructure that will support all Google API integrations.
 
 ## Objectives
-1. [ ] Create comprehensive MCP TypeScript type definitions
-2. [ ] Implement tool registry system with validation
-3. [ ] Enhance server class with MCP SDK integration
-4. [ ] Add error handling framework
-5. [ ] Implement configuration management with Zod validation
-6. [ ] Add structured logging system
-7. [ ] Create comprehensive unit tests for MCP functionality
-8. [ ] Add integration tests for MCP protocol compliance
+- Create comprehensive MCP TypeScript type definitions for protocol compliance
+- Implement dynamic tool registry system with validation and discovery
+- Enhance server class with MCP SDK integration and stdio transport
+- Add robust error handling framework for MCP operations
+- Implement configuration management with Zod validation
+- Add structured logging system for debugging and monitoring
+- Create comprehensive unit tests for all MCP functionality
+- Add integration tests for MCP protocol compliance validation
+
+## Implementation Steps
+1. ☐ Create comprehensive MCP type definitions and interfaces
+2. ☐ Implement basic tool registry class structure
+3. ☐ Add tool registration validation with JSON schema
+4. ☐ Create error handling framework with custom error types
+5. ☐ Implement configuration management with Zod schemas
+6. ☐ Add structured logging system with configurable levels
+7. ☐ Enhance server class with MCP SDK integration
+8. ☐ Configure stdio transport for MCP communication
+9. ☐ Implement message handler routing system
+10. ☐ Add tool discovery and listing functionality
+11. ☐ Implement tool execution pipeline with validation
+12. ☐ Create unit tests for tool registry operations
+13. ☐ Add unit tests for error handling scenarios
+14. ☐ Create integration tests for MCP protocol compliance
 
 ## Implementation Plan
 
-### Step 1: MCP Type Definitions
-**File**: `src/types/mcp.ts`
+### Step 1: Create MCP Type Definitions
+**Files**: `src/types/mcp.ts`
+- Define core MCP protocol message types (MCPRequest, MCPResponse, MCPNotification)
+- Create tool definition interfaces with input/output schemas
+- Add resource definition types for future use
+- Implement error type definitions with MCP error codes
+- Create configuration interfaces for server setup
+- Add utility types for JSON-RPC 2.0 compliance
 
-Create comprehensive TypeScript interfaces for:
-- MCP protocol messages (requests, responses, notifications)
-- Tool definitions with input/output schemas
-- Resource definitions for future use
-- Error types and handling
-- Configuration interfaces
-
-**Key Types to Implement:**
+**Key Types**:
 ```typescript
-// Core MCP Protocol Types
 interface MCPRequest {
   jsonrpc: '2.0';
   id: string | number;
@@ -35,197 +49,158 @@ interface MCPRequest {
   params?: unknown;
 }
 
-interface MCPResponse {
-  jsonrpc: '2.0';
-  id: string | number;
-  result?: unknown;
-  error?: MCPError;
-}
-
-// Tool System Types
 interface MCPTool {
   name: string;
   description: string;
   inputSchema: JSONSchema7;
   handler: (args: unknown) => Promise<MCPToolResult>;
 }
-
-interface MCPToolResult {
-  content: MCPContent[];
-  isError?: boolean;
-}
-
-// Error Handling Types
-interface MCPError {
-  code: number;
-  message: string;
-  data?: unknown;
-}
 ```
 
-### Step 2: Enhanced Server Implementation
-**File**: `src/server.ts` (major enhancement)
+### Step 2: Implement Tool Registry Class
+**Files**: `src/utils/toolRegistry.ts`
+- Create ToolRegistry class with Map-based storage
+- Add register() method with tool validation
+- Implement getTool() and listTools() methods
+- Add tool name validation and conflict detection
+- Create tool metadata management
+- Add tool execution wrapper with error handling
 
-Transform the basic server class to include:
-- MCP SDK integration with stdio transport
-- Tool registry system
-- Message handling and routing
-- Error handling and logging
-- Graceful shutdown with cleanup
+### Step 3: Add Tool Registration Validation
+**Files**: `src/utils/toolRegistry.ts` (enhancement)
+- Validate tool names against naming conventions
+- Check input schema validity using JSON Schema validator
+- Ensure handler function signature compliance
+- Add duplicate tool name detection
+- Validate tool description requirements
+- Create comprehensive validation error messages
 
-**Key Components:**
-```typescript
-class GoogleMCPServer {
-  private mcpServer: Server;
-  private toolRegistry: ToolRegistry;
-  private isRunning: boolean = false;
-
-  constructor() {
-    this.mcpServer = new Server(/* stdio transport */);
-    this.toolRegistry = new ToolRegistry();
-    this.setupMessageHandlers();
-  }
-
-  async start(): Promise<void> {
-    // Initialize MCP server
-    // Register initial tools
-    // Start stdio communication
-  }
-
-  private setupMessageHandlers(): void {
-    // Handle tools/list requests
-    // Handle tools/call requests
-    // Handle resources/list requests (future)
-  }
-}
-```
-
-### Step 3: Tool Registry System
-**File**: `src/utils/toolRegistry.ts`
-
-Implement a dynamic tool registration and discovery system:
-- Tool registration with validation
-- Tool execution with error handling
-- Tool discovery and listing
-- Input validation using JSON schemas
-
-**Key Features:**
-- Type-safe tool registration
-- Automatic input validation
-- Consistent error handling
-- Tool metadata management
-
-### Step 4: Error Handling Framework
-**File**: `src/utils/errors.ts`
-
-Create comprehensive error handling:
-- Custom error classes for different scenarios
-- Error formatting for MCP responses
-- Logging integration
-- Error recovery strategies
-
-**Error Types:**
-- `MCPProtocolError` - MCP protocol violations
-- `ToolExecutionError` - Tool execution failures
-- `ValidationError` - Input validation failures
-- `ConfigurationError` - Setup and config issues
+### Step 4: Create Error Handling Framework
+**Files**: `src/utils/errors.ts`
+- Define MCPError base class with error codes
+- Create specific error types: ProtocolError, ToolExecutionError, ValidationError
+- Implement error formatting for MCP responses
+- Add error logging integration
+- Create error recovery strategies
+- Add error code constants following MCP specification
 
 ### Step 5: Configuration Management
-**File**: `src/utils/config.ts`
+**Files**: `src/utils/config.ts`
+- Create Zod schemas for server configuration validation
+- Implement environment variable parsing with defaults
+- Add configuration loading with error handling
+- Create type-safe configuration interfaces
+- Add configuration validation on startup
+- Implement configuration change detection
 
-Implement configuration loading and validation:
-- Environment variable parsing
-- Zod schema validation
-- Default value handling
-- Configuration type safety
+### Step 6: Structured Logging System
+**Files**: `src/utils/logger.ts`
+- Create Logger class with configurable levels
+- Implement structured log format with timestamps
+- Add context-aware logging for MCP operations
+- Create performance logging for tool execution
+- Add error logging with stack traces
+- Implement log level filtering and output formatting
 
-### Step 6: Logging System
-**File**: `src/utils/logger.ts`
+### Step 7: Enhance Server with MCP SDK
+**Files**: `src/server.ts` (major enhancement)
+- Import and configure MCP SDK Server class
+- Initialize stdio transport for communication
+- Add MCP server lifecycle management
+- Create server capabilities declaration
+- Implement graceful shutdown with cleanup
+- Add server state management and monitoring
 
-Add structured logging:
-- Configurable log levels
-- Structured log format
-- Error logging with context
-- Performance logging
+### Step 8: Configure Stdio Transport
+**Files**: `src/server.ts` (stdio setup)
+- Configure stdin/stdout transport for MCP communication
+- Set up message parsing and serialization
+- Add transport error handling and recovery
+- Implement message buffering for reliability
+- Add transport-level logging for debugging
+- Configure transport timeouts and limits
 
-## Detailed Implementation Steps
+### Step 9: Implement Message Handler Routing
+**Files**: `src/server.ts` (message handling)
+- Create message router for MCP method dispatch
+- Implement handlers for tools/list requests
+- Add handlers for tools/call requests
+- Create handlers for resources/list (future use)
+- Add request validation and error responses
+- Implement method not found handling
 
-### Step 1: MCP Types (Priority 1)
-Based on existing `docs/implementation/02a-mcp-basic-types.md`:
+### Step 10: Add Tool Discovery Functionality
+**Files**: `src/server.ts` (tool discovery)
+- Implement tools/list request handler
+- Return tool metadata with descriptions and schemas
+- Add tool filtering and pagination support
+- Create tool capability reporting
+- Add tool availability checking
+- Implement dynamic tool discovery
 
-1. **Core Protocol Types**
-   - JSON-RPC 2.0 message structures
-   - MCP-specific message types
-   - Request/response patterns
+### Step 11: Implement Tool Execution Pipeline
+**Files**: `src/server.ts` (tool execution)
+- Create tools/call request handler with validation
+- Implement input parameter validation against schemas
+- Add tool execution with timeout handling
+- Create result formatting and error handling
+- Add execution logging and performance tracking
+- Implement tool execution context management
 
-2. **Tool System Types**
-   - Tool definition interfaces
-   - Input/output schemas
-   - Tool result formatting
+### Step 12: Create Tool Registry Unit Tests
+**Files**: `tests/unit/toolRegistry.test.ts`
+- Test tool registration with valid and invalid tools
+- Validate tool name conflict detection
+- Test tool discovery and listing functionality
+- Verify input schema validation
+- Test tool execution wrapper functionality
+- Add performance tests for tool operations
 
-3. **Error Handling Types**
-   - MCP error codes and messages
-   - Error response formatting
-   - Error recovery patterns
+### Step 13: Add Error Handling Unit Tests
+**Files**: `tests/unit/errors.test.ts`
+- Test custom error class creation and formatting
+- Validate error code assignment and consistency
+- Test error response formatting for MCP
+- Verify error logging integration
+- Test error recovery strategies
+- Add error serialization and deserialization tests
 
-### Step 2: MCP Server Core (Priority 2)
-Based on existing `docs/implementation/02b-mcp-server-core.md`:
-
-1. **Server Initialization**
-   - MCP SDK integration
-   - Stdio transport setup
-   - Message handler registration
-
-2. **Tool Management**
-   - Tool registry integration
-   - Dynamic tool registration
-   - Tool execution pipeline
-
-3. **Protocol Compliance**
-   - Proper JSON-RPC handling
-   - MCP specification adherence
-   - Error response formatting
-
-### Step 3: Integration Testing (Priority 3)
-Based on existing `docs/implementation/02c-mcp-integration.md`:
-
-1. **Unit Tests**
-   - Tool registry functionality
-   - Message handling logic
-   - Error handling scenarios
-
-2. **Integration Tests**
-   - MCP client communication
-   - Protocol compliance validation
-   - End-to-end tool execution
+### Step 14: Create MCP Protocol Integration Tests
+**Files**: `tests/integration/mcpProtocol.test.ts`
+- Test complete MCP server startup and communication
+- Validate JSON-RPC 2.0 message format compliance
+- Test tools/list request/response cycle
+- Verify tools/call execution workflow
+- Test error response formatting and codes
+- Add protocol compliance validation
 
 ## Success Criteria
 
 ### Functional Requirements
-- [ ] MCP server starts and communicates via stdio
-- [ ] Tool registration system accepts and manages tools
-- [ ] Server responds to `tools/list` requests
-- [ ] Server executes tools via `tools/call` requests
-- [ ] Error handling provides clear, actionable messages
-- [ ] Logging provides debugging information
+- ☐ MCP server starts and communicates via stdio without errors
+- ☐ Tool registry accepts and manages tools with validation
+- ☐ Server responds correctly to tools/list requests
+- ☐ Server executes tools via tools/call requests successfully
+- ☐ Error handling provides clear, actionable error messages
+- ☐ Logging provides comprehensive debugging information
 
 ### Technical Requirements
-- [ ] TypeScript compilation without errors
-- [ ] ESLint passes without warnings
-- [ ] Unit tests cover all core functionality
-- [ ] Integration tests validate MCP protocol compliance
-- [ ] Performance meets target response times (<100ms for tool operations)
+- ☐ TypeScript compilation passes without errors or warnings
+- ☐ ESLint validation passes without violations
+- ☐ Unit test coverage exceeds 90% for all core functionality
+- ☐ Integration tests validate complete MCP protocol compliance
+- ☐ Performance meets targets: <100ms for tool operations
 
-### Testing Validation
-- [ ] Can connect with Claude Desktop or other MCP client
-- [ ] Tool discovery works correctly
-- [ ] Tool execution returns proper results
-- [ ] Error scenarios handled gracefully
-- [ ] Server shutdown is clean and complete
+### Integration Requirements
+- ☐ Compatible with Claude Desktop and other MCP clients
+- ☐ Tool discovery works correctly across different clients
+- ☐ Tool execution returns properly formatted results
+- ☐ Error scenarios handled gracefully with proper responses
+- ☐ Server shutdown is clean and complete
 
-## Implementation Files
+## Key Files Created
 
-### New Files to Create
+### Core Implementation Files
 ```
 src/
 ├── types/
@@ -238,7 +213,7 @@ src/
 └── server.ts                 # Enhanced with MCP integration
 ```
 
-### Tests to Create
+### Test Files
 ```
 tests/
 ├── unit/
@@ -248,95 +223,72 @@ tests/
 ├── integration/
 │   ├── mcpProtocol.test.ts   # MCP protocol compliance
 │   └── toolExecution.test.ts # End-to-end tool testing
+├── performance/
+│   └── mcpPerformance.test.ts # Performance benchmarks
 └── mocks/
     └── mcpClient.ts          # Mock MCP client for testing
 ```
 
-## Dependencies and Integration
+## Performance Targets
 
-### MCP SDK Usage
-- `@modelcontextprotocol/sdk` for stdio transport
-- Server class for message handling
-- Tool and resource registration APIs
+### Response Time Requirements
+- Tool registration: < 10ms per tool
+- Tool discovery (tools/list): < 50ms
+- Tool execution: < 100ms (excluding external API calls)
+- Error handling: < 25ms
+- Server startup: < 500ms
 
-### Existing Code Integration
-- Enhance `src/server.ts` without breaking existing structure
-- Maintain compatibility with `src/index.ts` entry point
-- Preserve existing configuration patterns
-
-### Environment Variables
-No new environment variables required for this phase. OAuth credentials will be added in Phase 3.
+### Resource Usage Limits
+- Memory usage: < 50MB for MCP protocol operations
+- CPU usage: < 2% for idle protocol operations
+- Concurrent tool executions: Support 10+ simultaneous calls
 
 ## Testing Strategy
 
-### Unit Testing
-- Tool registry operations
-- Error handling scenarios
-- Configuration validation
-- Message parsing and formatting
+### Unit Testing Approach
+- Test each component in isolation with mocked dependencies
+- Validate all error scenarios and edge cases
+- Ensure type safety and schema validation
+- Test performance characteristics of core operations
 
-### Integration Testing
-- MCP client communication
-- Protocol compliance validation
-- Tool execution workflows
-- Error response handling
+### Integration Testing Approach
+- Test complete MCP client-server communication
+- Validate protocol compliance with real MCP clients
+- Test tool execution workflows end-to-end
+- Verify error handling across the entire stack
 
-### Manual Testing
-- Claude Desktop integration
-- Tool discovery and execution
-- Error scenario validation
-- Performance verification
-
-## Performance Targets
-
-### Response Times
-- Tool registration: < 10ms
-- Tool discovery (`tools/list`): < 50ms
-- Tool execution: < 100ms (excluding Google API calls)
-- Error handling: < 25ms
-
-### Resource Usage
-- Memory: < 50MB for MCP protocol handling
-- CPU: < 2% for idle protocol operations
-- Startup time: < 500ms for MCP server initialization
+### Manual Testing Checklist
+- [ ] Connect with Claude Desktop successfully
+- [ ] Tool discovery shows all registered tools
+- [ ] Tool execution works with various input types
+- [ ] Error scenarios provide helpful messages
+- [ ] Server shutdown is clean and responsive
 
 ## Risk Mitigation
 
 ### Technical Risks
-- **MCP SDK Compatibility**: Use exact version specified in dependencies
-- **Protocol Compliance**: Follow MCP specification strictly
-- **Error Handling**: Comprehensive error scenarios testing
-- **Performance**: Regular benchmarking during development
+- **MCP SDK Compatibility**: Use exact version specified in package.json
+- **Protocol Compliance**: Follow MCP specification strictly with validation
+- **Performance Issues**: Regular benchmarking during development
+- **Memory Leaks**: Comprehensive cleanup in shutdown procedures
 
 ### Integration Risks
 - **Client Compatibility**: Test with multiple MCP clients
-- **Message Format**: Validate JSON-RPC 2.0 compliance
-- **Tool Interface**: Ensure consistent tool behavior
+- **Message Format**: Validate JSON-RPC 2.0 compliance thoroughly
+- **Tool Interface**: Ensure consistent tool behavior patterns
 
-## Next Steps After Completion
+## Next Phase Preparation
 
-### Phase 3 Preparation
-- MCP server ready for OAuth integration
-- Tool registry ready for Google API tools
-- Error handling ready for API error scenarios
-- Configuration system ready for OAuth credentials
+### OAuth Integration Readiness
+- MCP server ready to register OAuth-related tools
+- Tool registry ready for authentication-dependent tools
+- Error handling ready for OAuth-specific error scenarios
+- Configuration system ready for OAuth credential management
 
-### Immediate Benefits
-- Functional MCP server for testing and development
-- Foundation for all Google API integrations
-- Debugging and development tools
-- Protocol compliance validation
+### Google API Foundation
+- Tool execution pipeline ready for API call integration
+- Error handling framework ready for API error scenarios
+- Logging system ready for API call monitoring
+- Performance monitoring ready for API latency tracking
 
-## Documentation Updates
-
-### README Updates
-- Add MCP client setup instructions
-- Include tool discovery examples
-- Document error handling patterns
-
-### API Documentation
-- Tool interface specifications
-- Error code reference
-- Configuration options
-
-This phase establishes the core MCP functionality that all subsequent Google API integrations will build upon. Success here ensures a solid foundation for the complete Google MCP Server implementation.
+This phase establishes the core MCP functionality that all subsequent Google API integrations will build upon. Success here ensures a solid, compliant foundation for the complete Google MCP Server implementation.
