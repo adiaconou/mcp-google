@@ -73,13 +73,14 @@ describe('OAuthManager', () => {
   });
 
   describe('getAuthorizationUrl', () => {
-    it('should generate authorization URL', async () => {
+    it('should generate authorization URL with expanded scopes', async () => {
       const oauthManager = new OAuthManager();
       const authUrl = await oauthManager.getAuthorizationUrl();
       
       expect(authUrl).toContain('https://accounts.google.com/o/oauth2/v2/auth');
       expect(authUrl).toContain('client_id=test-client-id');
       expect(authUrl).toContain('scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar'); // URL encoded
+      expect(authUrl).toContain('calendar.events'); // Should include events scope
       expect(authUrl).toContain('access_type=offline');
       expect(authUrl).toContain('prompt=consent');
       expect(authUrl).toContain('state=');

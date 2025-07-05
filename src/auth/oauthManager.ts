@@ -15,6 +15,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { setTimeout, clearTimeout } from 'timers';
 import { CalendarError, MCPErrorCode } from '../types/mcp';
+import { templateLoader } from './templates';
 
 /**
  * OAuth configuration interface
@@ -27,7 +28,7 @@ interface OAuthConfig {
 }
 
 /**
- * Token data interface for storage
+ * Enhanced token data interface for storage with metadata
  */
 interface TokenData {
   accessToken: string;
@@ -35,6 +36,8 @@ interface TokenData {
   expiryDate: number;
   scope: string;
   tokenType: string;
+  createdAt: number;
+  version: string;
 }
 
 /**
@@ -44,6 +47,28 @@ interface PKCEData {
   codeVerifier: string;
   codeChallenge: string;
   state: string;
+}
+
+/**
+ * Enhanced authentication status interface
+ */
+interface AuthStatus {
+  isAuthenticated: boolean;
+  hasTokens: boolean;
+  tokenExpiry?: number;
+  scopes?: string;
+  timeUntilExpiry?: number;
+  needsRefresh?: boolean;
+  createdAt?: number;
+  version?: string;
+}
+
+/**
+ * Port availability check result
+ */
+interface PortCheckResult {
+  port: number;
+  available: boolean;
 }
 
 /**
@@ -95,7 +120,10 @@ export class OAuthManager {
       clientId,
       clientSecret,
       redirectUri,
-      scopes: ['https://www.googleapis.com/auth/calendar']
+      scopes: [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events'
+      ]
     };
   }
 
@@ -177,15 +205,87 @@ export class OAuthManager {
   }
 
   /**
-   * Start HTTP server to handle OAuth callback
+   * Check if a port is available for use
+   * @param port - Port number to check
+   * @returns Promise resolving to port availability result
+   */
+  private async checkPortAvailability(port: number): Promise<PortCheckResult> {
+    return new Promise((resolve) => {
+      const testServer = createServer();
+      
+      testServer.listen(port, () => {
+        testServer.close(() => {
+          resolve({ port, available: true });
+        });
+      });
+      
+      testServer.on('error', () => {
+        resolve({ port, available: false });
+      });
+    });
+  }
+
+  /**
+   * Find an available port in the specified range
+   * @param startPort - Starting port number (default: 8080)
+   * @param endPort - Ending port number (default: 8090)
+   * @returns Promise resolving to available port number
+   * @throws {CalendarError} If no ports are available
+   */
+  private async findAvailablePort(startPort: number = 8080, endPort: number = 8090): Promise<number> {
+    for (let port = startPort; port <= endPort; port++) {
+      const result = await this.checkPortAvailability(port);
+      if (result.available) {
+        return port;
+      }
+    }
+    
+    throw new CalendarError(
+      `No available ports found in range ${startPort}-${endPort}. Please ensure some ports are free or set OAUTH_CALLBACK_PORT to a specific available port.`,
+      MCPErrorCode.InternalError
+    );
+  }
+
+  /**
+   * Start HTTP server to handle OAuth callback with port conflict detection
    * @returns Promise resolving when callback is received
    */
   private async startCallbackServer(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const port = parseInt(process.env.OAUTH_CALLBACK_PORT || '8080');
-      const timeout = parseInt(process.env.OAUTH_CALLBACK_TIMEOUT || '300000'); // 5 minutes
+    // Phase 1.4: Port Conflict Detection - Find available port
+    const preferredPort = parseInt(process.env.OAUTH_CALLBACK_PORT || '8080');
+    let port: number;
+    
+    if (process.env.OAUTH_CALLBACK_PORT) {
+      // If specific port is requested, check if it's available
+      const result = await this.checkPortAvailability(preferredPort);
+      if (!result.available) {
+        throw new CalendarError(
+          `Requested port ${preferredPort} is not available. Please choose a different port or remove OAUTH_CALLBACK_PORT to use automatic port selection.`,
+          MCPErrorCode.InternalError
+        );
+      }
+      port = preferredPort;
+    } else {
+      // Find any available port in range
+      port = await this.findAvailablePort();
+    }
 
-      this.callbackServer = createServer(async (req, res) => {
+    // Update redirect URI if port changed
+    if (port !== 8080) {
+      const newRedirectUri = `http://localhost:${port}/auth/callback`;
+      this.oauth2Client = new google.auth.OAuth2(
+        this.config.clientId,
+        this.config.clientSecret,
+        newRedirectUri
+      );
+      console.log(`Using port ${port} for OAuth callback`);
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const timeout = parseInt(process.env.OAUTH_CALLBACK_TIMEOUT || '300000'); // 5 minutes
+
+        this.callbackServer = createServer(async (req, res) => {
         try {
           if (!req.url) {
             throw new Error('No URL in request');
@@ -201,7 +301,7 @@ export class OAuthManager {
             // Handle OAuth error
             if (error) {
               res.writeHead(400, { 'Content-Type': 'text/html' });
-              res.end(`<h1>Authentication Error</h1><p>${error}</p>`);
+              res.end(await this.generateErrorPage(`OAuth Error: ${error}`, 'The authentication request was denied or failed. Please try again.'));
               reject(new CalendarError(`OAuth error: ${error}`, MCPErrorCode.AuthenticationError));
               return;
             }
@@ -209,7 +309,7 @@ export class OAuthManager {
             // Validate state parameter
             if (!state || !this.currentPKCE || state !== this.currentPKCE.state) {
               res.writeHead(400, { 'Content-Type': 'text/html' });
-              res.end('<h1>Authentication Error</h1><p>Invalid state parameter</p>');
+              res.end(await this.generateErrorPage('Invalid State Parameter', 'The authentication request appears to be invalid. Please try again.'));
               reject(new CalendarError('Invalid state parameter', MCPErrorCode.AuthenticationError));
               return;
             }
@@ -218,12 +318,12 @@ export class OAuthManager {
             if (code) {
               await this.handleCallback(code);
               res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end('<h1>Authentication Successful</h1><p>You can close this window and return to the application.</p>');
+              res.end(await this.generateSuccessPage());
               this.stopCallbackServer();
               resolve();
             } else {
               res.writeHead(400, { 'Content-Type': 'text/html' });
-              res.end('<h1>Authentication Error</h1><p>No authorization code received</p>');
+              res.end(await this.generateErrorPage('No Authorization Code', 'No authorization code was received from Google. Please try again.'));
               reject(new CalendarError('No authorization code received', MCPErrorCode.AuthenticationError));
             }
           } else {
@@ -252,11 +352,55 @@ export class OAuthManager {
         clearTimeout(timeoutId);
       });
 
-      this.callbackServer.on('error', (error) => {
+      this.callbackServer.on('error', (error: any) => {
         clearTimeout(timeoutId);
-        reject(new CalendarError(`Callback server error: ${error.message}`, MCPErrorCode.AuthenticationError));
+        if (error.code === 'EADDRINUSE') {
+          reject(new CalendarError(
+            `Port ${port} is already in use. This should not happen with port detection enabled.`,
+            MCPErrorCode.InternalError
+          ));
+        } else {
+          reject(new CalendarError(`Callback server error: ${error.message}`, MCPErrorCode.AuthenticationError));
+        }
       });
+      } catch (error) {
+        reject(error instanceof CalendarError ? error : new CalendarError(
+          `Failed to start callback server: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          MCPErrorCode.InternalError
+        ));
+      }
     });
+  }
+
+  /**
+   * Generate enhanced HTML success page with auto-close functionality (Phase 2.2 & 2.3)
+   * @returns Promise resolving to HTML string for success page
+   */
+  private async generateSuccessPage(): Promise<string> {
+    try {
+      const autoCloseDelay = parseInt(process.env.OAUTH_AUTO_CLOSE_DELAY || '3000'); // 3 seconds default
+      return await templateLoader.loadSuccessTemplate(autoCloseDelay);
+    } catch (error) {
+      // Fallback to inline HTML if template loading fails
+      console.warn('Failed to load success template, using fallback:', error);
+      return templateLoader.getFallbackSuccessHtml();
+    }
+  }
+
+  /**
+   * Generate enhanced HTML error page (Phase 2.3)
+   * @param title - Error title
+   * @param message - Error message
+   * @returns Promise resolving to HTML string for error page
+   */
+  private async generateErrorPage(title: string, message: string): Promise<string> {
+    try {
+      return await templateLoader.loadErrorTemplate(title, message);
+    } catch (error) {
+      // Fallback to inline HTML if template loading fails
+      console.warn('Failed to load error template, using fallback:', error);
+      return templateLoader.getFallbackErrorHtml(title, message);
+    }
   }
 
   /**
@@ -290,13 +434,15 @@ export class OAuthManager {
         throw new Error('Invalid token response');
       }
 
-      // Store tokens
+      // Store tokens with metadata
       await this.storeTokens({
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         expiryDate: tokens.expiry_date || Date.now() + 3600000, // 1 hour default
         scope: tokens.scope || this.config.scopes.join(' '),
-        tokenType: tokens.token_type || 'Bearer'
+        tokenType: tokens.token_type || 'Bearer',
+        createdAt: Date.now(),
+        version: '1.0.0'
       });
 
       // Set tokens in OAuth client
@@ -396,8 +542,8 @@ export class OAuthManager {
         );
       }
 
-      // Check if token is still valid
-      if (tokens.expiryDate > Date.now() + 60000) { // 1 minute buffer
+      // Check if token is still valid with 5-minute buffer (Phase 1.3: Token Refresh Buffer)
+      if (tokens.expiryDate > Date.now() + 300000) { // 5 minute buffer
         return tokens.accessToken;
       }
 
@@ -497,37 +643,85 @@ export class OAuthManager {
   }
 
   /**
-   * Get authentication status and token info
-   * @returns Authentication status object
+   * Enhanced authentication status reporting (Phase 2.4)
+   * @returns Comprehensive authentication status object
    */
-  async getAuthStatus(): Promise<{
-    isAuthenticated: boolean;
-    hasTokens: boolean;
-    tokenExpiry?: number;
-    scopes?: string;
-  }> {
+  async getAuthStatus(): Promise<AuthStatus> {
     const tokens = await this.loadTokens();
     const isAuth = await this.isAuthenticated();
+    const now = Date.now();
 
-    const result: {
-      isAuthenticated: boolean;
-      hasTokens: boolean;
-      tokenExpiry?: number;
-      scopes?: string;
-    } = {
+    const result: AuthStatus = {
       isAuthenticated: isAuth,
       hasTokens: tokens !== null
     };
 
-    if (tokens?.expiryDate !== undefined) {
+    if (tokens) {
       result.tokenExpiry = tokens.expiryDate;
-    }
-
-    if (tokens?.scope !== undefined) {
       result.scopes = tokens.scope;
+      result.createdAt = tokens.createdAt;
+      result.version = tokens.version;
+      
+      // Calculate time until expiry
+      if (tokens.expiryDate > now) {
+        result.timeUntilExpiry = tokens.expiryDate - now;
+        // Check if token needs refresh (within 5-minute buffer)
+        result.needsRefresh = tokens.expiryDate <= now + 300000;
+      } else {
+        result.timeUntilExpiry = 0;
+        result.needsRefresh = true;
+      }
     }
 
     return result;
+  }
+  /**
+   * Check if user is already authenticated with valid tokens (Phase 2.1)
+   * @param requiredScopes - Optional array of required scopes to validate
+   * @returns True if authenticated with valid tokens, false otherwise
+   */
+  async isAlreadyAuthenticated(requiredScopes?: string[]): Promise<boolean> {
+    try {
+      const tokens = await this.loadTokens();
+      if (!tokens) {
+        return false;
+      }
+
+      // Check if tokens are still valid (with 5-minute buffer)
+      if (tokens.expiryDate <= Date.now() + 300000) {
+        // Try to refresh tokens
+        const refreshed = await this.refreshTokens();
+        if (!refreshed) {
+          return false;
+        }
+        // Reload tokens after refresh
+        const refreshedTokens = await this.loadTokens();
+        if (!refreshedTokens) {
+          return false;
+        }
+      }
+
+      // Validate scopes if provided
+      if (requiredScopes && requiredScopes.length > 0) {
+        const tokenScopes = tokens.scope.split(' ');
+        const hasAllScopes = requiredScopes.every(scope => tokenScopes.includes(scope));
+        if (!hasAllScopes) {
+          return false;
+        }
+      }
+
+      // Set credentials in OAuth client
+      this.oauth2Client.setCredentials({
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        expiry_date: tokens.expiryDate
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error checking if already authenticated:', error);
+      return false;
+    }
   }
 
   /**
