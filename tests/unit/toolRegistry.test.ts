@@ -10,9 +10,20 @@ import { ToolDefinition, MCPToolResult, MCPErrorCode, CalendarError } from '../.
 
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
+  let consoleErrorSpy: jest.SpyInstance;
+  let consoleLogSpy: jest.SpyInstance;
 
   beforeEach(() => {
     registry = new ToolRegistry();
+    // Mock console methods to reduce test noise
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    // Restore console methods
+    consoleErrorSpy.mockRestore();
+    consoleLogSpy.mockRestore();
   });
 
   describe('Tool Registration', () => {

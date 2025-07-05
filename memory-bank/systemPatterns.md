@@ -35,6 +35,196 @@ graph TD
     G --> L
 ```
 
+## OAuth 2.0 + PKCE Authentication Flow
+
+### Complete OAuth Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant User as User/AI Agent
+    participant MCP as MCP Server
+    participant Auth as OAuth Manager
+    participant Server as Temp HTTP Server
+    participant Browser as User Browser
+    participant Google as Google OAuth
+    participant API as Google APIs
+
+    Note over User,API: Initial Authentication Flow
+    
+    User->>MCP: Tool call (e.g., calendar_list_events)
+    MCP->>Auth: ensureValidToken(scopes)
+    Auth->>Auth: Check token cache
+    
+    alt No valid token found
+        Auth->>Server: Create temporary HTTP server
+        Auth->>Auth: Generate PKCE code_verifier & challenge
+        Auth->>Auth: Build authorization URL with PKCE
+        Auth->>Browser: Open authorization URL
+        
+        Browser->>Google: User authorizes application
+        Google->>Server: Redirect with authorization code
+        Server->>Auth: Return authorization code
+        Auth->>Server: Close temporary server
+        
+        Auth->>Google: Exchange code for tokens (with PKCE)
+        Google->>Auth: Return access & refresh tokens
+        Auth->>Auth: Store tokens securely (encrypted)
+        Auth->>MCP: Return valid access token
+    else Valid token exists
+        Auth->>MCP: Return cached access token
+    end
+    
+    MCP->>API: Make API call with access token
+    API->>MCP: Return API response
+    MCP->>User: Return tool result
+
+    Note over User,API: Token Refresh Flow
+    
+    User->>MCP: Subsequent tool call
+    MCP->>Auth: ensureValidToken(scopes)
+    Auth->>Auth: Check token expiration
+    
+    alt Token expired but refresh token valid
+        Auth->>Google: Refresh access token
+        Google->>Auth: Return new access token
+        Auth->>Auth: Update token cache
+        Auth->>MCP: Return fresh access token
+    else Refresh token expired/invalid
+        Auth->>Auth: Clear invalid tokens
+        Note over Auth: Falls back to full OAuth flow
+    end
+    
+    MCP->>API: Make API call with fresh token
+    API->>MCP: Return API response
+    MCP->>User: Return tool result
+
+    Note over User,API: Error Handling Flow
+    
+    User->>MCP: Tool call
+    MCP->>Auth: ensureValidToken(scopes)
+    Auth->>API: Attempt API call
+    
+    alt API returns 401 Unauthorized
+        API->>Auth: 401 Unauthorized
+        Auth->>Auth: Mark token as invalid
+        Auth->>Google: Attempt token refresh
+        
+        alt Refresh successful
+            Google->>Auth: New access token
+            Auth->>API: Retry API call
+            API->>MCP: Success response
+        else Refresh failed
+            Auth->>Auth: Clear all tokens
+            Note over Auth: Trigger full OAuth flow
+        end
+    else API returns 403 Forbidden
+        API->>Auth: 403 Insufficient permissions
+        Auth->>Auth: Check required scopes
+        Note over Auth: May need to re-authorize with additional scopes
+    end
+```
+
+### OAuth Flow Components
+
+#### 1. PKCE (Proof Key for Code Exchange)
+- **Code Verifier**: Cryptographically random string (43-128 characters)
+- **Code Challenge**: SHA256 hash of code verifier, base64url encoded
+- **Challenge Method**: Always "S256" for security
+- **Purpose**: Prevents authorization code interception attacks
+
+#### 2. Temporary HTTP Server
+- **Lifecycle**: Created only during OAuth flow, destroyed after
+- **Port**: Dynamic port selection (typically 8080-8090 range)
+- **Security**: Localhost only, single-use callback handler
+- **Timeout**: 5-minute maximum wait for user authorization
+
+#### 3. Token Management
+- **Storage**: Encrypted local storage using system keychain
+- **Caching**: In-memory cache with scope-based keys
+- **Refresh**: Automatic refresh 5 minutes before expiration
+- **Cleanup**: Automatic cleanup of expired/invalid tokens
+
+#### 4. Scope Management
+- **Dynamic Scopes**: Different tools require different permission scopes
+- **Incremental Authorization**: Request additional scopes as needed
+- **Scope Validation**: Verify token has required scopes before API calls
+- **Minimal Permissions**: Request only necessary scopes per service
+
+### Integration with MCP Tool Execution
+
+```mermaid
+flowchart TD
+    A[MCP Tool Call] --> B{Token Required?}
+    B -->|Yes| C[OAuth Manager]
+    B -->|No| H[Execute Tool]
+    
+    C --> D{Valid Token?}
+    D -->|Yes| E[Return Token]
+    D -->|No| F[Start OAuth Flow]
+    
+    F --> G[Browser Authorization]
+    G --> I[Token Exchange]
+    I --> J[Store Tokens]
+    J --> E
+    
+    E --> K[Create API Client]
+    K --> L[Execute API Call]
+    L --> M{API Success?}
+    
+    M -->|Yes| N[Return Result]
+    M -->|No| O{Auth Error?}
+    
+    O -->|Yes| P[Refresh Token]
+    P --> Q{Refresh Success?}
+    Q -->|Yes| L
+    Q -->|No| F
+    
+    O -->|No| R[Return API Error]
+    
+    H --> N
+    N --> S[Format MCP Response]
+```
+
+### Security Considerations
+
+#### 1. Token Security
+- **Encryption**: All stored tokens encrypted with system-specific keys
+- **Memory Protection**: Tokens cleared from memory after use
+- **Transmission**: HTTPS only for all OAuth communications
+- **Rotation**: Automatic token rotation on refresh
+
+#### 2. PKCE Implementation
+- **Cryptographic Randomness**: Secure random number generation
+- **Challenge Verification**: Server-side verification of PKCE challenge
+- **Code Lifetime**: Short-lived authorization codes (10 minutes max)
+- **Single Use**: Authorization codes can only be used once
+
+#### 3. Scope Isolation
+- **Principle of Least Privilege**: Request minimal required scopes
+- **Service Separation**: Different tokens for different Google services
+- **User Consent**: Clear scope descriptions during authorization
+- **Audit Trail**: Log all scope requests and grants
+
+### Error Recovery Patterns
+
+#### 1. Network Failures
+- **Retry Logic**: Exponential backoff for transient failures
+- **Circuit Breaker**: Prevent cascading failures
+- **Offline Mode**: Graceful degradation when APIs unavailable
+- **User Feedback**: Clear error messages for network issues
+
+#### 2. Authentication Failures
+- **Token Invalidation**: Automatic cleanup of invalid tokens
+- **Re-authorization**: Seamless re-auth flow for expired credentials
+- **Scope Expansion**: Handle insufficient permission errors
+- **User Guidance**: Clear instructions for authentication issues
+
+#### 3. API Limitations
+- **Rate Limiting**: Respect Google API quotas and limits
+- **Quota Management**: Track and manage API usage
+- **Fallback Strategies**: Alternative approaches when APIs unavailable
+- **User Communication**: Inform users of temporary limitations
+
 ### Core Architectural Principles
 
 #### 1. Stdio-Based MCP Communication
