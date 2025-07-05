@@ -48,7 +48,7 @@ Before starting Phase 2 implementation, the user must complete these setup tasks
 4. ☐ Create Calendar API client with event operations
 5. ☐ Implement `calendar_list_events` tool with filtering
 6. ☐ Implement `calendar_create_event` tool with validation
-7. ☐ Enhance server with MCP stdio transport
+7. ☐ Implement functional MCP server with stdio transport
 8. ☐ Add tool registration and execution pipeline
 9. ☐ Create basic error handling for calendar operations
 10. ☐ Add integration tests for calendar tools
@@ -178,13 +178,52 @@ interface CalendarEvent {
 }
 ```
 
-### Step 7: Enhance Server with MCP Integration
-**Files**: `src/server.ts` (major enhancement)
-- Import and configure MCP SDK Server class
-- Initialize stdio transport for communication
-- Add MCP server lifecycle management
-- Create server capabilities declaration
-- Implement graceful shutdown with cleanup
+### Step 7: Implement Functional MCP Server with Stdio Transport
+**Files**: `src/server.ts` (complete rewrite from skeleton)
+- Replace skeleton GoogleMCPServer with functional MCP SDK integration
+- Import and configure MCP SDK Server class with stdio transport
+- Implement MCP protocol message handling (initialize, tools/list, tools/call)
+- Add MCP server lifecycle management (start, stop, error handling)
+- Create server capabilities declaration for calendar tools
+- Implement request/response pipeline with proper error handling
+- Add graceful shutdown with cleanup and resource management
+- Transform from placeholder into working MCP server that can communicate with clients
+
+**Key Implementation Details**:
+```typescript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+class GoogleMCPServer {
+  private server: Server;
+  private transport: StdioServerTransport;
+  
+  constructor() {
+    this.server = new Server({
+      name: 'google-mcp-server',
+      version: '1.0.0'
+    }, {
+      capabilities: {
+        tools: {}
+      }
+    });
+    
+    this.transport = new StdioServerTransport();
+  }
+  
+  async start(): Promise<void> {
+    await this.server.connect(this.transport);
+    console.error('Google MCP Server started'); // Use stderr for logging
+  }
+}
+```
+
+**Critical Success Criteria**:
+- Server accepts MCP protocol messages via stdin
+- Server sends proper MCP responses via stdout
+- Server handles initialize, tools/list, and tools/call methods
+- Error handling prevents server crashes
+- Logging goes to stderr (not stdout which is reserved for MCP protocol)
 
 ### Step 8: Add Tool Registration and Execution
 **Files**: `src/server.ts` (tool integration)

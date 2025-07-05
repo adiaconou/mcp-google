@@ -10,6 +10,7 @@ We have **refactored the implementation plan** to deliver value incrementally. T
 - ✅ **Implementation Plan Refactored**: New incremental approach with 7 focused phases
 - ✅ **Memory Bank Updated**: All phase documents updated to reflect new approach
 - ✅ **Test Infrastructure Fixed**: Console errors resolved, clean test output achieved
+- ✅ **Phase 2 Plan Enhanced**: Added missing functional MCP server implementation step
 - 🔄 **Phase 2 In Progress**: Functional Calendar MCP Server implementation
 
 ### New Implementation Approach
@@ -77,11 +78,12 @@ We have **refactored the implementation plan** to deliver value incrementally. T
 ### Phase 2 Implementation Details
 The next phase focuses on creating a **minimal but complete** MCP server with Calendar functionality:
 
-1. **Basic MCP Protocol**
-   - Stdio transport for communication
-   - Simple tool registry for calendar tools
-   - Basic error handling
-   - Tool discovery and execution
+1. **Functional MCP Server** ⭐ **ENHANCED**
+   - Complete rewrite of skeleton server with MCP SDK integration
+   - Stdio transport for MCP protocol communication
+   - Request/response pipeline with proper error handling
+   - Server lifecycle management and graceful shutdown
+   - Tool discovery and execution framework
 
 2. **Calendar OAuth Integration**
    - Simple OAuth 2.0 flow for Calendar API
