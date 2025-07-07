@@ -47,7 +47,7 @@ Before starting Phase 2 implementation, the user must complete these setup tasks
 3. ☑ Add simple OAuth manager for Calendar API scope
 4. ☑ Create Calendar API client with event operations
 5. ☑ Implement `calendar_list_events` tool with filtering
-6. ☐ Implement `calendar_create_event` tool with validation
+6. ☑ Implement `calendar_create_event` tool with validation
 7. ☐ Implement functional MCP server with stdio transport
 8. ☐ Add tool registration and execution pipeline
 9. ☐ Create basic error handling for calendar operations

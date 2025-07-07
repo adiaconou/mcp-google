@@ -6,8 +6,8 @@
  */
 
 export { calendarListEventsTool } from './listEvents';
+export { calendarCreateEventTool } from './createEvent';
 
 // Future calendar tools will be exported here:
-// export { calendarCreateEventTool } from './createEvent';
 // export { calendarUpdateEventTool } from './updateEvent';
 // export { calendarDeleteEventTool } from './deleteEvent';
