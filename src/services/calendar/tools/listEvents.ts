@@ -7,6 +7,7 @@
 
 import { ToolDefinition, CalendarListEventsParams, MCPToolResult, CalendarEvent } from '../../../types/mcp';
 import { calendarClient } from '../calendarClient';
+import { oauthManager } from '../../../auth/oauthManager';
 
 /**
  * Format a calendar event for display (simplified)
@@ -35,6 +36,18 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
   try {
     const listParams = params as CalendarListEventsParams;
     
+    // Check if user is authenticated
+    const isAuthenticated = await oauthManager.instance.isAuthenticated();
+    if (!isAuthenticated) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'Authentication required. Please run the following command to authenticate:\n\nnode dist/index.js --auth\n\nThen follow the instructions to complete the OAuth flow.'
+        }],
+        isError: true
+      };
+    }
+    
     // Call the calendar client
     const events = await calendarClient.instance.listEvents(listParams);
     
@@ -56,11 +69,23 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
     };
     
   } catch (error) {
-    // Simple error handling
+    // Enhanced error handling with authentication guidance
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    if (errorMessage.includes('Not authenticated') || errorMessage.includes('Authentication')) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'Authentication required. Please run the following command to authenticate:\n\nnode dist/index.js --auth\n\nThen follow the instructions to complete the OAuth flow.'
+        }],
+        isError: true
+      };
+    }
+    
     return {
       content: [{
         type: 'text',
-        text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        text: `Error: ${errorMessage}`
       }],
       isError: true
     };

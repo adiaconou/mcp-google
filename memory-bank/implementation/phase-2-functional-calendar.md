@@ -33,6 +33,46 @@ Before starting Phase 2 implementation, the user must complete these setup tasks
 - Create at least one test calendar event for testing
 - Note your primary calendar ID (usually your email address)
 
+### 5. Pre-Authentication for Claude Desktop Integration
+**CRITICAL**: When using Claude Desktop as the MCP client, authentication must be completed BEFORE configuring Claude Desktop, since Claude Desktop manages the server process and cannot trigger the OAuth flow.
+
+- **Build the project**: Run `npm run build` to compile TypeScript to JavaScript
+- **Execute authentication**: Run `node dist/index.js --auth` in a terminal
+- **Complete OAuth flow**: 
+  - Browser will open automatically to Google OAuth consent screen
+  - Sign in with your Google account
+  - Grant Calendar API permissions
+  - Wait for "Authentication completed successfully!" message
+- **Verify token storage**: Confirm `.tokens/calendar-tokens.json` file exists in project root
+- **Test authentication**: Run `node test-mcp-server.js` to verify tools work correctly
+
+**Important Notes**:
+- This is a one-time setup process per Google account
+- Tokens will auto-refresh, so re-authentication is rarely needed
+- If authentication fails, delete `.tokens/` directory and retry
+- Keep the terminal open during OAuth flow completion
+
+### 6. Claude Desktop Configuration
+After successful pre-authentication, configure Claude Desktop:
+
+- **Locate Claude Desktop config**: Usually at `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+- **Add MCP server configuration**:
+  ```json
+  {
+    "mcpServers": {
+      "google-calendar": {
+        "command": "node",
+        "args": ["C:/Code/mcp-google/dist/index.js"],
+        "env": {
+          "NODE_ENV": "production"
+        }
+      }
+    }
+  }
+  ```
+- **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new configuration
+- **Test integration**: Try using calendar tools in a Claude Desktop conversation
+
 ## Objectives
 - Implement minimal MCP protocol (stdio transport, tool execution)
 - Add basic OAuth 2.0 flow for Calendar API access only
@@ -48,8 +88,8 @@ Before starting Phase 2 implementation, the user must complete these setup tasks
 4. ☑ Create Calendar API client with event operations
 5. ☑ Implement `calendar_list_events` tool with filtering
 6. ☑ Implement `calendar_create_event` tool with validation
-7. ☐ Implement functional MCP server with stdio transport
-8. ☐ Add tool registration and execution pipeline
+7. ☑ Implement functional MCP server with stdio transport
+8. ☑ Add tool registration and execution pipeline
 9. ☐ Create basic error handling for calendar operations
 10. ☐ Add integration tests for calendar tools
 11. ☐ Test with Claude Desktop or other MCP client
@@ -353,10 +393,15 @@ NODE_ENV=development
 - Performance under normal load
 
 ### Manual Testing Checklist
-- [ ] Connect with Claude Desktop successfully
-- [ ] OAuth flow completes without errors
-- [ ] List events shows actual calendar data
-- [ ] Create event appears in Google Calendar
+- [ ] Build project with `npm run build` completes successfully
+- [ ] Pre-authentication with `node dist/index.js --auth` completes without errors
+- [ ] OAuth flow opens browser and completes successfully
+- [ ] Token file `.tokens/calendar-tokens.json` is created
+- [ ] Test script `node test-mcp-server.js` shows tools working
+- [ ] Claude Desktop configuration is added correctly
+- [ ] Connect with Claude Desktop successfully after restart
+- [ ] List events shows actual calendar data through Claude Desktop
+- [ ] Create event appears in Google Calendar when called through Claude Desktop
 - [ ] Error scenarios provide helpful messages
 - [ ] Server shutdown is clean and responsive
 

@@ -10,34 +10,46 @@
  */
 
 import { config } from 'dotenv';
-const { GoogleMCPServer } = require('./server');
+import { server } from './server.js';
+import { oauthManager } from './auth/oauthManager.js';
 
-// Load environment variables
-config();
+// Load environment variables only if not already provided (e.g., by Claude Desktop)
+if (!process.env.GOOGLE_CLIENT_ID) {
+  config();
+}
 
-async function main(): Promise<void> {
+async function handleAuth(): Promise<void> {
   try {
-    const server = new GoogleMCPServer();
-    await server.start();
+    console.error('[Auth] Starting OAuth authentication flow...');
+    await oauthManager.instance.authenticate();
+    console.error('[Auth] Authentication completed successfully!');
+    console.error('[Auth] You can now use the calendar tools in Claude Desktop.');
+    process.exit(0);
   } catch (error) {
-    console.error('Failed to start Google MCP Server:', error);
+    console.error('[Auth] Authentication failed:', error);
     process.exit(1);
   }
 }
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\nReceived SIGINT, shutting down gracefully...');
-  process.exit(0);
-});
+async function main(): Promise<void> {
+  // Check for authentication command
+  if (process.argv.includes('--auth')) {
+    await handleAuth();
+    return;
+  }
 
-process.on('SIGTERM', () => {
-  console.log('\nReceived SIGTERM, shutting down gracefully...');
-  process.exit(0);
-});
+  try {
+    console.error('[Main] Starting Google MCP Server...');
+    await server.start();
+    console.error('[Main] Server started successfully');
+  } catch (error) {
+    console.error('[Main] Failed to start Google MCP Server:', error);
+    process.exit(1);
+  }
+}
 
 // Start the server
 main().catch((error) => {
-  console.error('Unhandled error in main:', error);
+  console.error('[Main] Unhandled error in main:', error);
   process.exit(1);
 });

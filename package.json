@@ -7,7 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-templates",
+    "copy-templates": "if not exist dist\\auth\\templates mkdir dist\\auth\\templates && copy src\\auth\\templates\\*.html dist\\auth\\templates\\",
     "build:watch": "tsc --watch",
     "dev": "nodemon --exec \"ts-node src/index.ts\"",
     "start": "node dist/index.js",

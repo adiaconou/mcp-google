@@ -32,7 +32,7 @@ export class ToolRegistry {
 
     // Register the tool
     this.tools.set(tool.name, tool);
-    console.log(`Registered tool: ${tool.name}`);
+    console.error(`Registered tool: ${tool.name}`);
   }
 
   /**
@@ -93,11 +93,11 @@ export class ToolRegistry {
       this.validateParams(tool, params);
 
       // Execute the tool handler
-      console.log(`Executing tool: ${name}`);
+      console.error(`Executing tool: ${name}`);
       const result = await tool.handler(params);
 
       const duration = Date.now() - startTime;
-      console.log(`Tool '${name}' executed successfully in ${duration}ms`);
+      console.error(`Tool '${name}' executed successfully in ${duration}ms`);
 
       return result;
 
@@ -143,7 +143,7 @@ export class ToolRegistry {
    */
   clear(): void {
     this.tools.clear();
-    console.log('Tool registry cleared');
+    console.error('Tool registry cleared');
   }
 
   /**

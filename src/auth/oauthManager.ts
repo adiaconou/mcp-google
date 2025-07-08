@@ -165,6 +165,7 @@ export class OAuthManager {
         scope: this.config.scopes,
         state: this.currentPKCE.state,
         code_challenge: this.currentPKCE.codeChallenge,
+        code_challenge_method: 'S256' as any,
         prompt: 'consent' // Force consent to ensure refresh token
       });
 
@@ -185,7 +186,10 @@ export class OAuthManager {
    */
   async authenticate(): Promise<void> {
     try {
-      // Get authorization URL
+      // Start callback server first
+      const serverPromise = this.startCallbackServer();
+      
+      // Get authorization URL after server is ready
       const authUrl = await this.getAuthorizationUrl();
       
       console.log('\n=== Google Calendar OAuth Authentication ===');
@@ -193,8 +197,20 @@ export class OAuthManager {
       console.log(authUrl);
       console.log('\nWaiting for authentication callback...');
 
-      // Start callback server
-      await this.startCallbackServer();
+      // Open browser automatically if possible
+      try {
+        const { exec } = await import('child_process');
+        exec(`start "" "${authUrl}"`, (error) => {
+          if (error) {
+            console.log('Could not open browser automatically. Please open the URL manually.');
+          }
+        });
+      } catch {
+        console.log('Could not open browser automatically. Please open the URL manually.');
+      }
+
+      // Wait for callback server to complete
+      await serverPromise;
 
     } catch (error) {
       throw new CalendarError(
@@ -502,27 +518,47 @@ export class OAuthManager {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
+      console.error('[OAuth] Checking authentication status...');
       const tokens = await this.loadTokens();
       if (!tokens) {
+        console.error('[OAuth] No tokens found');
         return false;
       }
+
+      console.error(`[OAuth] Tokens found. Expiry: ${new Date(tokens.expiryDate).toISOString()}, Now: ${new Date().toISOString()}`);
 
       // Check if tokens are still valid or can be refreshed
       if (tokens.expiryDate > Date.now()) {
         // Tokens are still valid
-        this.oauth2Client.setCredentials({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
-          expiry_date: tokens.expiryDate
-        });
-        return true;
+        console.error('[OAuth] Tokens are still valid, setting credentials...');
+        try {
+          this.oauth2Client.setCredentials({
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+            expiry_date: tokens.expiryDate
+          });
+          
+          // Verify credentials were set properly
+          const creds = this.oauth2Client.credentials;
+          if (creds.access_token) {
+            console.error('[OAuth] Credentials set successfully');
+            return true;
+          } else {
+            console.error('[OAuth] Failed to set credentials properly');
+            return false;
+          }
+        } catch (credError) {
+          console.error('[OAuth] Error setting credentials:', credError);
+          return false;
+        }
       }
 
       // Try to refresh tokens
+      console.error('[OAuth] Tokens expired, attempting refresh...');
       return await this.refreshTokens();
 
     } catch (error) {
-      console.error('Error checking authentication status:', error);
+      console.error('[OAuth] Error checking authentication status:', error);
       return false;
     }
   }

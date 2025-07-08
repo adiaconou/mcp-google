@@ -5,13 +5,13 @@
  * More comprehensive tests will be added in subsequent phases.
  */
 
-const ServerModule = require('../src/server');
+import { GoogleMCPServer } from '../src/server.js';
 
 describe('GoogleMCPServer', () => {
-  let server: any;
+  let server: GoogleMCPServer;
 
   beforeEach(() => {
-    server = new ServerModule.GoogleMCPServer();
+    server = new GoogleMCPServer();
   });
 
   afterEach(async () => {
@@ -21,15 +21,21 @@ describe('GoogleMCPServer', () => {
   });
 
   test('should initialize successfully', () => {
-    expect(server).toBeInstanceOf(ServerModule.GoogleMCPServer);
+    expect(server).toBeInstanceOf(GoogleMCPServer);
   });
 
-  test('should start and stop successfully', async () => {
-    // Note: This test will timeout in the current implementation
-    // because the server runs indefinitely. This will be fixed
-    // in Phase 2 when we implement proper MCP message handling.
-    
-    // For now, we'll just test that the server can be created
-    expect(server).toBeDefined();
-  }, 1000);
+  test('should have correct status after initialization', () => {
+    const status = server.getStatus();
+    expect(status.running).toBe(true);
+    expect(status.toolCount).toBe(2); // calendar_list_events and calendar_create_event
+    expect(status.tools).toContain('calendar_list_events');
+    expect(status.tools).toContain('calendar_create_event');
+  });
+
+  test('should register calendar tools correctly', () => {
+    const status = server.getStatus();
+    expect(status.tools).toEqual(
+      expect.arrayContaining(['calendar_list_events', 'calendar_create_event'])
+    );
+  });
 });
