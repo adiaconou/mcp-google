@@ -83,7 +83,7 @@ export class CalendarClient {
         ...params
       };
 
-      console.log(`Listing events for calendar: ${requestParams.calendarId}`);
+      console.error(`Listing events for calendar: ${requestParams.calendarId}`);
       
       // Make API request
       const response = await calendar.events.list(requestParams);
@@ -97,7 +97,7 @@ export class CalendarClient {
         .filter(item => item.start && item.end) // Filter out events without start/end times
         .map(item => this.convertToCalendarEvent(item));
 
-      console.log(`Retrieved ${events.length} events`);
+      console.error(`Retrieved ${events.length} events`);
       return events;
 
     } catch (error) {
@@ -119,7 +119,7 @@ export class CalendarClient {
       this.validateCreateEventParams(params);
 
       const calendarId = params.calendarId || 'primary';
-      console.log(`Creating event "${params.summary}" in calendar: ${calendarId}`);
+      console.error(`Creating event "${params.summary}" in calendar: ${calendarId}`);
 
       // Make API request
       const response = await calendar.events.insert({
@@ -133,7 +133,7 @@ export class CalendarClient {
       }
 
       const createdEvent = this.convertToCalendarEvent(response.data);
-      console.log(`Event created successfully with ID: ${createdEvent.id}`);
+      console.error(`Event created successfully with ID: ${createdEvent.id}`);
       
       return createdEvent;
 

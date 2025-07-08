@@ -17,6 +17,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry.js';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index.js';
+import { oauthManager } from './auth/oauthManager.js';
 
 /**
  * Google MCP Server - Provides Google Calendar tools via MCP protocol
@@ -147,11 +148,36 @@ export class GoogleMCPServer {
   }
 
   /**
+   * Ensure authentication is available before starting the server
+   */
+  private async ensureAuthentication(): Promise<void> {
+    try {
+      console.error('[MCP Server] Checking authentication status...');
+      const isAuth = await oauthManager.instance.isAuthenticated();
+      
+      if (!isAuth) {
+        console.error('[MCP Server] No valid authentication found, starting OAuth flow...');
+        console.error('[MCP Server] A browser window will open for Google authentication.');
+        await oauthManager.instance.authenticate();
+        console.error('[MCP Server] Authentication completed successfully!');
+      } else {
+        console.error('[MCP Server] Authentication verified successfully');
+      }
+    } catch (error) {
+      console.error('[MCP Server] Authentication failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Start the MCP server
    */
   async start(): Promise<void> {
     try {
       console.error('[MCP Server] Starting Google MCP Server...');
+      
+      // Ensure authentication before starting MCP server
+      await this.ensureAuthentication();
       
       // Connect the server to stdio transport
       await this.server.connect(this.transport);
