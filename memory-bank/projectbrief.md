@@ -49,31 +49,32 @@ Create a stdio-based MCP server for **personal use** that provides AI agents wit
 
 ## Success Criteria
 
-### Phase 1: Foundation ✅
-- [x] TypeScript project setup with proper tooling
-- [x] Basic MCP server structure
-- [x] Development environment configuration
+### Phase 1: Foundation ✅ (COMPLETE)
+- [x] TypeScript project setup with strict typing
+- [x] Development tooling (ESLint, Jest, nodemon)
+- [x] Basic server structure and environment configuration
 
-### Phase 2: MCP Protocol (Current)
-- [ ] MCP SDK integration with stdio transport
-- [ ] Tool registration and message handling
-- [ ] Basic protocol compliance testing
+### Phase 2: Functional Calendar MCP Server 🔄 (IN PROGRESS)
+- [x] Foundational MCP types, tool registry, and OAuth manager
+- [x] Google Calendar API client and tools (`list_events`, `create_event`)
+- [ ] Functional MCP server with stdio transport and tool registration
+- [ ] End-to-end integration testing with a real MCP client
 
-### Phase 3: Authentication
-- [ ] Google OAuth 2.0 setup and flow
-- [ ] Token management with refresh capability
-- [ ] Secure credential storage
+### Phase 3: Gmail API Integration 📋 (PLANNED)
+- [ ] Gmail API client and essential email management tools
+- [ ] OAuth scope extension for multiple services
 
-### Phase 4: Google API Integration
-- [ ] Calendar API client and tools
-- [ ] Gmail API client and tools
-- [ ] Drive API client and tools
-- [ ] Docs and Sheets API clients
+### Phase 4: Drive API Integration 📋 (PLANNED)
+- [ ] Drive API client and core file management tools
 
-### Phase 5: Production Ready
-- [ ] Comprehensive error handling
-- [ ] Performance optimization
-- [ ] Documentation and deployment guides
+### Phase 5: Docs API Integration 📋 (PLANNED)
+- [ ] Docs API client and document creation/editing tools
+
+### Phase 6: Sheets API Integration 📋 (PLANNED)
+- [ ] Sheets API client and spreadsheet manipulation tools
+
+### Phase 7: Production Hardening 📋 (PLANNED)
+- [ ] Comprehensive error handling, performance optimization, and security hardening
 
 ## Constraints and Assumptions
 

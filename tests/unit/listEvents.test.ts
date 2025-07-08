@@ -61,15 +61,7 @@ describe('Calendar List Events Tool', () => {
 
       const result = await calendarListEventsTool.handler({});
 
-      expect(mockCalendarClient.listEvents).toHaveBeenCalledWith(
-        expect.objectContaining({
-          calendarId: 'primary',
-          maxResults: 10,
-          singleEvents: true,
-          orderBy: 'startTime',
-          timeMin: expect.any(String)
-        })
-      );
+      expect(mockCalendarClient.listEvents).toHaveBeenCalledWith({});
 
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
@@ -96,26 +88,7 @@ describe('Calendar List Events Tool', () => {
 
       await calendarListEventsTool.handler(params);
 
-      expect(mockCalendarClient.listEvents).toHaveBeenCalledWith({
-        calendarId: 'custom@example.com',
-        maxResults: 5,
-        singleEvents: true,
-        orderBy: 'startTime',
-        timeMin: '2024-01-01T00:00:00Z',
-        timeMax: '2024-01-31T23:59:59Z'
-      });
-    });
-
-    it('should cap maxResults at 100', async () => {
-      mockCalendarClient.listEvents.mockResolvedValue([]);
-
-      await calendarListEventsTool.handler({ maxResults: 150 });
-
-      expect(mockCalendarClient.listEvents).toHaveBeenCalledWith(
-        expect.objectContaining({
-          maxResults: 100
-        })
-      );
+      expect(mockCalendarClient.listEvents).toHaveBeenCalledWith(params);
     });
 
     it('should handle calendar client errors', async () => {

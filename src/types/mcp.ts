@@ -135,10 +135,6 @@ export interface CalendarEvent {
     displayName?: string;
     responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted';
   }>;
-  status?: 'confirmed' | 'tentative' | 'cancelled';
-  visibility?: 'default' | 'public' | 'private' | 'confidential';
-  created?: string;
-  updated?: string;
   htmlLink?: string;
 }
 
@@ -170,7 +166,6 @@ export interface CalendarCreateEventParams {
     email: string;
     displayName?: string;
   }>;
-  visibility?: 'default' | 'public' | 'private' | 'confidential';
 }
 
 // Tool Result Types

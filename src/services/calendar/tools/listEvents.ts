@@ -35,22 +35,8 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
   try {
     const listParams = params as CalendarListEventsParams;
     
-    // Build API parameters with required defaults
-    const apiParams: CalendarListEventsParams = {
-      calendarId: listParams.calendarId || 'primary',
-      maxResults: Math.min(listParams.maxResults || 10, 100),
-      singleEvents: true,
-      orderBy: 'startTime',
-      timeMin: listParams.timeMin || new Date().toISOString()
-    };
-    
-    // Add optional timeMax if provided
-    if (listParams.timeMax) {
-      apiParams.timeMax = listParams.timeMax;
-    }
-    
     // Call the calendar client
-    const events = await calendarClient.instance.listEvents(apiParams);
+    const events = await calendarClient.instance.listEvents(listParams);
     
     // Return results
     if (events.length === 0) {

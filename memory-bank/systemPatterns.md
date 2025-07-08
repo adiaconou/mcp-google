@@ -1,5 +1,7 @@
 # System Patterns - Architecture and Design
 
+> **Note on Implementation Status**: This document outlines the **target architecture** for the fully realized project. The implementation is following an incremental, value-first approach. Some advanced patterns described here (e.g., Circuit Breaker, Rate Limiter) are planned for later phases, specifically the Production Hardening phase. Please refer to `progress.md` for the current implementation status.
+
 ## Overall Architecture
 
 ### High-Level System Design

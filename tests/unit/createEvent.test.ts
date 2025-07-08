@@ -35,7 +35,7 @@ describe('Calendar Create Event Tool', () => {
       expect(calendarCreateEventTool.inputSchema).toBeDefined();
       expect(calendarCreateEventTool.inputSchema.type).toBe('object');
       expect(calendarCreateEventTool.inputSchema.properties).toBeDefined();
-      expect(calendarCreateEventTool.inputSchema.required).toEqual(['summary', 'startTime', 'endTime']);
+      expect(calendarCreateEventTool.inputSchema.required).toEqual(['summary', 'start', 'end']);
     });
 
     it('should have handler function', () => {
@@ -45,8 +45,8 @@ describe('Calendar Create Event Tool', () => {
     it('should have correct required fields in schema', () => {
       const properties = calendarCreateEventTool.inputSchema.properties!;
       expect(properties.summary).toBeDefined();
-      expect(properties.startTime).toBeDefined();
-      expect(properties.endTime).toBeDefined();
+      expect(properties.start).toBeDefined();
+      expect(properties.end).toBeDefined();
       expect(properties.description).toBeDefined();
       expect(properties.location).toBeDefined();
       expect(properties.attendees).toBeDefined();
@@ -71,24 +71,19 @@ describe('Calendar Create Event Tool', () => {
     it('should handle successful event creation with minimal input', async () => {
       const input = {
         summary: 'Test Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z'
-      };
-
-      mockCalendarClient.createEvent.mockResolvedValue(mockCreatedEvent);
-
-      const result = await calendarCreateEventTool.handler(input);
-
-      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith({
-        calendarId: 'primary',
-        summary: 'Test Meeting',
         start: {
           dateTime: '2024-01-15T10:00:00Z'
         },
         end: {
           dateTime: '2024-01-15T11:00:00Z'
         }
-      });
+      };
+
+      mockCalendarClient.createEvent.mockResolvedValue(mockCreatedEvent);
+
+      const result = await calendarCreateEventTool.handler(input);
+
+      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith(input);
 
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe('text');
@@ -99,11 +94,15 @@ describe('Calendar Create Event Tool', () => {
     it('should handle event creation with all optional fields', async () => {
       const input = {
         summary: 'Detailed Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
+        start: {
+          dateTime: '2024-01-15T10:00:00Z'
+        },
+        end: {
+          dateTime: '2024-01-15T11:00:00Z'
+        },
         description: 'A detailed meeting description',
         location: 'Conference Room B',
-        attendees: ['john@example.com', 'jane@example.com']
+        attendees: [{ email: 'john@example.com' }, { email: 'jane@example.com' }]
       };
 
       mockCalendarClient.createEvent.mockResolvedValue({
@@ -119,22 +118,7 @@ describe('Calendar Create Event Tool', () => {
 
       const result = await calendarCreateEventTool.handler(input);
 
-      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith({
-        calendarId: 'primary',
-        summary: 'Detailed Meeting',
-        start: {
-          dateTime: '2024-01-15T10:00:00Z'
-        },
-        end: {
-          dateTime: '2024-01-15T11:00:00Z'
-        },
-        description: 'A detailed meeting description',
-        location: 'Conference Room B',
-        attendees: [
-          { email: 'john@example.com' },
-          { email: 'jane@example.com' }
-        ]
-      });
+      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith(input);
 
       expect(result.content[0].text).toContain('Detailed Meeting');
       expect(result.content[0].text).toContain('Conference Room B');
@@ -142,33 +126,15 @@ describe('Calendar Create Event Tool', () => {
       expect(result.content[0].text).toContain('john@example.com, jane@example.com');
     });
 
-    it('should transform attendees from simple array to Google API format', async () => {
-      const input = {
-        summary: 'Team Sync',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
-        attendees: ['  alice@example.com  ', 'bob@example.com']
-      };
-
-      mockCalendarClient.createEvent.mockResolvedValue(mockCreatedEvent);
-
-      await calendarCreateEventTool.handler(input);
-
-      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          attendees: [
-            { email: 'alice@example.com' },
-            { email: 'bob@example.com' }
-          ]
-        })
-      );
-    });
-
     it('should handle empty attendees array', async () => {
       const input = {
         summary: 'Solo Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
+        start: {
+          dateTime: '2024-01-15T10:00:00Z'
+        },
+        end: {
+          dateTime: '2024-01-15T11:00:00Z'
+        },
         attendees: []
       };
 
@@ -176,23 +142,18 @@ describe('Calendar Create Event Tool', () => {
 
       await calendarCreateEventTool.handler(input);
 
-      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith({
-        calendarId: 'primary',
-        summary: 'Solo Meeting',
+      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith(input);
+    });
+
+    it('should handle calendar client errors', async () => {
+      const input = {
+        summary: 'Error Meeting',
         start: {
           dateTime: '2024-01-15T10:00:00Z'
         },
         end: {
           dateTime: '2024-01-15T11:00:00Z'
         }
-      });
-    });
-
-    it('should handle calendar client errors', async () => {
-      const input = {
-        summary: 'Error Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z'
       };
 
       const error = new Error('Calendar API error');
@@ -208,11 +169,15 @@ describe('Calendar Create Event Tool', () => {
     it('should format created event with all available details', async () => {
       const input = {
         summary: 'Complete Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
+        start: {
+          dateTime: '2024-01-15T10:00:00Z'
+        },
+        end: {
+          dateTime: '2024-01-15T11:00:00Z'
+        },
         description: 'Full description',
         location: 'Room 123',
-        attendees: ['test@example.com']
+        attendees: [{ email: 'test@example.com' }]
       };
 
       const completeEvent: CalendarEvent = {
@@ -246,8 +211,12 @@ describe('Calendar Create Event Tool', () => {
     it('should format created event without optional fields', async () => {
       const input = {
         summary: 'Simple Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z'
+        start: {
+          dateTime: '2024-01-15T10:00:00Z'
+        },
+        end: {
+          dateTime: '2024-01-15T11:00:00Z'
+        }
       };
 
       const simpleEvent: CalendarEvent = {
@@ -277,8 +246,12 @@ describe('Calendar Create Event Tool', () => {
     it('should handle unknown errors gracefully', async () => {
       const input = {
         summary: 'Unknown Error Meeting',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z'
+        start: {
+          dateTime: '2024-01-15T10:00:00Z'
+        },
+        end: {
+          dateTime: '2024-01-15T11:00:00Z'
+        }
       };
 
       mockCalendarClient.createEvent.mockRejectedValue('Unknown error');
@@ -290,31 +263,5 @@ describe('Calendar Create Event Tool', () => {
       expect(result.content[0].text).toContain('Unknown error');
     });
 
-    it('should preserve input transformation logic', async () => {
-      const input = {
-        summary: 'Transform Test',
-        startTime: '2024-01-15T10:00:00-08:00',
-        endTime: '2024-01-15T11:00:00-08:00',
-        description: 'Test description',
-        location: 'Test location'
-      };
-
-      mockCalendarClient.createEvent.mockResolvedValue(mockCreatedEvent);
-
-      await calendarCreateEventTool.handler(input);
-
-      expect(mockCalendarClient.createEvent).toHaveBeenCalledWith({
-        calendarId: 'primary',
-        summary: 'Transform Test',
-        start: {
-          dateTime: '2024-01-15T10:00:00-08:00'
-        },
-        end: {
-          dateTime: '2024-01-15T11:00:00-08:00'
-        },
-        description: 'Test description',
-        location: 'Test location'
-      });
-    });
   });
 });

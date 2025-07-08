@@ -101,7 +101,8 @@ describe('CalendarClient', () => {
           calendarId: 'primary',
           maxResults: 10,
           singleEvents: true,
-          orderBy: 'startTime'
+          orderBy: 'startTime',
+          timeMin: expect.any(String)
         })
       );
     });
@@ -126,7 +127,9 @@ describe('CalendarClient', () => {
           maxResults: 5,
           timeMin: '2024-01-01T00:00:00Z',
           timeMax: '2024-01-31T23:59:59Z',
-          q: 'meeting'
+          q: 'meeting',
+          singleEvents: true,
+          orderBy: 'startTime'
         })
       );
     });
@@ -184,11 +187,7 @@ describe('CalendarClient', () => {
       // Verify API was called correctly
       expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
         calendarId: 'primary',
-        requestBody: expect.objectContaining({
-          summary: 'Test Event',
-          start: { dateTime: '2024-01-01T10:00:00Z' },
-          end: { dateTime: '2024-01-01T11:00:00Z' }
-        }),
+        requestBody: validEventParams,
         sendUpdates: 'all'
       });
     });
@@ -206,14 +205,14 @@ describe('CalendarClient', () => {
         summary: 'Test',
         start: { dateTime: '' },
         end: { dateTime: '2024-01-01T11:00:00Z' }
-      })).rejects.toThrow('Event start dateTime is required');
+      })).rejects.toThrow('Event start and end times are required');
 
       // Test missing end time
       await expect(client.createEvent({
         summary: 'Test',
         start: { dateTime: '2024-01-01T10:00:00Z' },
         end: { dateTime: '' }
-      })).rejects.toThrow('Event end dateTime is required');
+      })).rejects.toThrow('Event start and end times are required');
     });
 
     it('should validate date order', async () => {
@@ -240,7 +239,7 @@ describe('CalendarClient', () => {
       mockCalendarAPI.events.list.mockRejectedValue(authError);
 
       await expect(client.listEvents()).rejects.toThrow(CalendarError);
-      await expect(client.listEvents()).rejects.toThrow('Authentication failed');
+      await expect(client.listEvents()).rejects.toThrow('Authentication failed. Please re-authenticate.');
     });
 
     it('should handle rate limiting errors', async () => {
@@ -254,7 +253,7 @@ describe('CalendarClient', () => {
       const networkError = { code: 'ENOTFOUND', message: 'Network error' };
       mockCalendarAPI.events.list.mockRejectedValue(networkError);
 
-      await expect(client.listEvents()).rejects.toThrow('Network error');
+      await expect(client.listEvents()).rejects.toThrow('Failed to list events: Network error');
     });
 
     it('should re-throw CalendarError instances', async () => {

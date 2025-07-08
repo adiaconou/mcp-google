@@ -77,26 +77,11 @@ export class CalendarClient {
       const requestParams: calendar_v3.Params$Resource$Events$List = {
         calendarId: params.calendarId || 'primary',
         maxResults: Math.min(params.maxResults || 10, 100), // Cap at 100
-        singleEvents: params.singleEvents !== false, // Default to true
-        orderBy: params.orderBy || 'startTime'
+        singleEvents: true,
+        orderBy: 'startTime',
+        timeMin: params.timeMin || new Date().toISOString(),
+        ...params
       };
-
-      // Add optional parameters only if they have values
-      if (params.timeMin) {
-        requestParams.timeMin = params.timeMin;
-      }
-      if (params.timeMax) {
-        requestParams.timeMax = params.timeMax;
-      }
-      if (params.q) {
-        requestParams.q = params.q;
-      }
-
-      // Only include timeMin if singleEvents is true (required by API)
-      if (requestParams.singleEvents && !requestParams.timeMin) {
-        // Default to current time if not specified
-        requestParams.timeMin = new Date().toISOString();
-      }
 
       console.log(`Listing events for calendar: ${requestParams.calendarId}`);
       
@@ -133,43 +118,13 @@ export class CalendarClient {
       // Validate required parameters
       this.validateCreateEventParams(params);
 
-      // Prepare event data for Google Calendar API
-      const eventData: calendar_v3.Schema$Event = {
-        summary: params.summary,
-        start: {
-          dateTime: params.start.dateTime,
-          ...(params.start.timeZone && { timeZone: params.start.timeZone })
-        },
-        end: {
-          dateTime: params.end.dateTime,
-          ...(params.end.timeZone && { timeZone: params.end.timeZone })
-        },
-        visibility: params.visibility || 'default'
-      };
-
-      // Add optional fields only if they have values
-      if (params.description) {
-        eventData.description = params.description;
-      }
-      if (params.location) {
-        eventData.location = params.location;
-      }
-
-      // Add attendees if provided
-      if (params.attendees && params.attendees.length > 0) {
-        eventData.attendees = params.attendees.map(attendee => ({
-          email: attendee.email,
-          ...(attendee.displayName && { displayName: attendee.displayName })
-        }));
-      }
-
       const calendarId = params.calendarId || 'primary';
       console.log(`Creating event "${params.summary}" in calendar: ${calendarId}`);
 
       // Make API request
       const response = await calendar.events.insert({
         calendarId,
-        requestBody: eventData,
+        requestBody: params,
         sendUpdates: 'all' // Send notifications to attendees
       });
 
@@ -221,45 +176,12 @@ export class CalendarClient {
       end: {
         dateTime: endDateTime,
         ...(googleEvent.end.timeZone && { timeZone: googleEvent.end.timeZone })
-      }
+      },
+      ...(googleEvent.id && { id: googleEvent.id }),
+      ...(googleEvent.description && { description: googleEvent.description }),
+      ...(googleEvent.location && { location: googleEvent.location }),
+      ...(googleEvent.htmlLink && { htmlLink: googleEvent.htmlLink }),
     };
-
-    // Add id if it exists and is not null
-    if (googleEvent.id) {
-      event.id = googleEvent.id;
-    }
-
-    // Add optional fields only if they have values
-    if (googleEvent.description) {
-      event.description = googleEvent.description;
-    }
-    if (googleEvent.location) {
-      event.location = googleEvent.location;
-    }
-    if (googleEvent.status && (
-      googleEvent.status === 'confirmed' || 
-      googleEvent.status === 'tentative' || 
-      googleEvent.status === 'cancelled'
-    )) {
-      event.status = googleEvent.status;
-    }
-    if (googleEvent.visibility && (
-      googleEvent.visibility === 'default' || 
-      googleEvent.visibility === 'public' || 
-      googleEvent.visibility === 'private' || 
-      googleEvent.visibility === 'confidential'
-    )) {
-      event.visibility = googleEvent.visibility;
-    }
-    if (googleEvent.created) {
-      event.created = googleEvent.created;
-    }
-    if (googleEvent.updated) {
-      event.updated = googleEvent.updated;
-    }
-    if (googleEvent.htmlLink) {
-      event.htmlLink = googleEvent.htmlLink;
-    }
 
     // Add attendees if present
     if (googleEvent.attendees && googleEvent.attendees.length > 0) {
@@ -281,57 +203,30 @@ export class CalendarClient {
    * @throws {CalendarError} If validation fails
    */
   private validateCreateEventParams(params: CalendarCreateEventParams): void {
-    if (!params.summary || params.summary.trim().length === 0) {
-      throw new CalendarError(
-        'Event summary is required and cannot be empty',
-        MCPErrorCode.ValidationError
-      );
+    if (!params.summary?.trim()) {
+      throw new CalendarError('Event summary is required', MCPErrorCode.ValidationError);
     }
 
-    if (!params.start || !params.start.dateTime) {
-      throw new CalendarError(
-        'Event start dateTime is required',
-        MCPErrorCode.ValidationError
-      );
+    if (!params.start?.dateTime || !params.end?.dateTime) {
+      throw new CalendarError('Event start and end times are required', MCPErrorCode.ValidationError);
     }
 
-    if (!params.end || !params.end.dateTime) {
-      throw new CalendarError(
-        'Event end dateTime is required',
-        MCPErrorCode.ValidationError
-      );
-    }
-
-    // Validate date format (basic ISO 8601 check)
     try {
       const startDate = new Date(params.start.dateTime);
       const endDate = new Date(params.end.dateTime);
 
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new CalendarError(
-          'Invalid date format. Please use ISO 8601 format (e.g., 2024-01-01T10:00:00Z)',
-          MCPErrorCode.ValidationError
-        );
+        throw new Error('Invalid date format');
       }
 
       if (startDate >= endDate) {
-        throw new CalendarError(
-          'Event start time must be before end time',
-          MCPErrorCode.ValidationError
-        );
+        throw new CalendarError('Event start time must be before end time', MCPErrorCode.ValidationError);
       }
-
     } catch (error) {
-      // Re-throw CalendarError instances
       if (error instanceof CalendarError) {
         throw error;
       }
-      
-      // Handle other errors as date format issues
-      throw new CalendarError(
-        'Invalid date format. Please use ISO 8601 format (e.g., 2024-01-01T10:00:00Z)',
-        MCPErrorCode.ValidationError
-      );
+      throw new CalendarError('Invalid date format. Use ISO 8601 format (e.g., 2024-01-01T10:00:00Z)', MCPErrorCode.ValidationError);
     }
 
     // Validate attendee emails if provided
@@ -366,76 +261,26 @@ export class CalendarClient {
   private handleApiError(error: unknown, operation: string): CalendarError {
     console.error(`Calendar API error during ${operation}:`, error);
 
-    // Handle CalendarError instances (re-throw)
     if (error instanceof CalendarError) {
       return error;
     }
 
-    // Type guard for error objects with common properties
-    const isErrorWithCode = (err: unknown): err is { code: number | string; message?: string } => {
-      return typeof err === 'object' && err !== null && 'code' in err;
-    };
+    const err = error as { code?: number | string; message?: string };
 
-    const isErrorWithMessage = (err: unknown): err is { message: string } => {
-      return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message: unknown }).message === 'string';
-    };
-
-    // Handle authentication errors
-    if (isErrorWithCode(error) && (error.code === 401 || (isErrorWithMessage(error) && error.message.includes('unauthorized')))) {
-      return new CalendarError(
-        'Authentication failed. Please re-authenticate with Google Calendar.',
-        MCPErrorCode.AuthenticationError
-      );
+    switch (err.code) {
+      case 401:
+        return new CalendarError('Authentication failed. Please re-authenticate.', MCPErrorCode.AuthenticationError);
+      case 403:
+        return new CalendarError('Insufficient permissions.', MCPErrorCode.AuthorizationError);
+      case 429:
+        return new CalendarError('Rate limit exceeded. Please try again later.', MCPErrorCode.RateLimitError);
+      case 404:
+        return new CalendarError(`Resource not found during ${operation}.`, MCPErrorCode.APIError);
+      case 400:
+        return new CalendarError(`Invalid request for ${operation}: ${err.message}`, MCPErrorCode.ValidationError);
+      default:
+        return new CalendarError(`Failed to ${operation}: ${err.message || 'Unknown error'}`, MCPErrorCode.APIError, { originalError: error });
     }
-
-    // Handle authorization errors (insufficient permissions)
-    if (isErrorWithCode(error) && error.code === 403) {
-      return new CalendarError(
-        'Insufficient permissions to access Google Calendar. Please check your OAuth scopes.',
-        MCPErrorCode.AuthorizationError
-      );
-    }
-
-    // Handle rate limiting
-    if (isErrorWithCode(error) && error.code === 429) {
-      return new CalendarError(
-        'Rate limit exceeded. Please try again later.',
-        MCPErrorCode.RateLimitError
-      );
-    }
-
-    // Handle not found errors
-    if (isErrorWithCode(error) && error.code === 404) {
-      return new CalendarError(
-        `Calendar or event not found during ${operation}`,
-        MCPErrorCode.APIError
-      );
-    }
-
-    // Handle validation errors from Google
-    if (isErrorWithCode(error) && error.code === 400) {
-      const message = isErrorWithMessage(error) ? error.message : 'Unknown validation error';
-      return new CalendarError(
-        `Invalid request parameters for ${operation}: ${message}`,
-        MCPErrorCode.ValidationError
-      );
-    }
-
-    // Handle network/connection errors
-    if (isErrorWithCode(error) && (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED')) {
-      return new CalendarError(
-        'Network error: Unable to connect to Google Calendar API',
-        MCPErrorCode.APIError
-      );
-    }
-
-    // Handle generic errors
-    const message = isErrorWithMessage(error) ? error.message : 'Unknown error';
-    return new CalendarError(
-      `Failed to ${operation}: ${message}`,
-      MCPErrorCode.APIError,
-      { originalError: error }
-    );
   }
 }
 
