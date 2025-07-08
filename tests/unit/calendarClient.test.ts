@@ -184,10 +184,14 @@ describe('CalendarClient', () => {
         end: { dateTime: '2024-01-01T11:00:00Z' }
       });
 
-      // Verify API was called correctly
+      // Verify API was called correctly (parameters may be processed for timezone)
       expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
         calendarId: 'primary',
-        requestBody: validEventParams,
+        requestBody: expect.objectContaining({
+          summary: 'Test Event',
+          start: expect.objectContaining({ dateTime: '2024-01-01T10:00:00Z' }),
+          end: expect.objectContaining({ dateTime: '2024-01-01T11:00:00Z' })
+        }),
         sendUpdates: 'all'
       });
     });

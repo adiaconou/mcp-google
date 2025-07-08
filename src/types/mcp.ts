@@ -143,6 +143,7 @@ export interface CalendarListEventsParams {
   calendarId?: string;
   timeMin?: string;
   timeMax?: string;
+  timeZone?: string; // Default timezone for time filters
   maxResults?: number;
   singleEvents?: boolean;
   orderBy?: 'startTime' | 'updated';
@@ -166,6 +167,13 @@ export interface CalendarCreateEventParams {
     email: string;
     displayName?: string;
   }>;
+  reminders?: {
+    useDefault?: boolean;
+    overrides?: Array<{
+      method: 'email' | 'popup';
+      minutes: number;
+    }>;
+  };
 }
 
 // Tool Result Types

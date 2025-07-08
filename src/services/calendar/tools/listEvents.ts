@@ -56,23 +56,11 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
     };
     
   } catch (error) {
-    // Enhanced error handling with authentication guidance
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage.includes('Not authenticated') || errorMessage.includes('Authentication') || errorMessage.includes('OAuth')) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'Authentication required. Please run the following command to authenticate:\n\nnode dist/index.js --auth\n\nThen follow the instructions to complete the OAuth flow.'
-        }],
-        isError: true
-      };
-    }
-    
+    // Consistent error handling pattern with createEvent
     return {
       content: [{
         type: 'text',
-        text: `Error: ${errorMessage}`
+        text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       }],
       isError: true
     };
@@ -84,31 +72,39 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
  */
 export const calendarListEventsTool: ToolDefinition = {
   name: 'calendar_list_events',
-  description: 'List calendar events with optional filtering',
+  description: 'List calendar events with optional filtering and timezone support',
   inputSchema: {
     type: 'object',
     properties: {
       calendarId: {
         type: 'string',
         default: 'primary',
-        description: 'Calendar ID (defaults to primary)'
+        description: 'Calendar ID (defaults to primary calendar)'
       },
       timeMin: {
         type: 'string',
         format: 'date-time',
-        description: 'Start time filter (ISO 8601 format)'
+        description: 'Start time filter (ISO format: 2024-01-01T10:00:00 or 2024-01-01T10:00:00Z)'
       },
       timeMax: {
         type: 'string',
         format: 'date-time',
-        description: 'End time filter (ISO 8601 format)'
+        description: 'End time filter (ISO format: 2024-01-01T18:00:00 or 2024-01-01T18:00:00Z)'
+      },
+      timeZone: {
+        type: 'string',
+        description: 'Default timezone for time filters (IANA format, e.g., "America/Los_Angeles")'
       },
       maxResults: {
         type: 'number',
         default: 10,
         minimum: 1,
         maximum: 100,
-        description: 'Maximum events to return'
+        description: 'Maximum events to return (1-100)'
+      },
+      q: {
+        type: 'string',
+        description: 'Search query to filter events by title, description, or location'
       }
     }
   },

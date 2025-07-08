@@ -118,13 +118,16 @@ export class CalendarClient {
       // Validate required parameters
       this.validateCreateEventParams(params);
 
-      const calendarId = params.calendarId || 'primary';
-      console.error(`Creating event "${params.summary}" in calendar: ${calendarId}`);
+      // Process timezone and reminder information
+      const processedParams = this.processEventParams(params);
+
+      const calendarId = processedParams.calendarId || 'primary';
+      console.error(`Creating event "${processedParams.summary}" in calendar: ${calendarId}`);
 
       // Make API request
       const response = await calendar.events.insert({
         calendarId,
-        requestBody: params,
+        requestBody: processedParams,
         sendUpdates: 'all' // Send notifications to attendees
       });
 
@@ -195,6 +198,99 @@ export class CalendarClient {
     }
 
     return event;
+  }
+
+  /**
+   * Process event parameters to handle timezone and reminders
+   * @param params - Raw event parameters
+   * @returns Processed parameters ready for Google Calendar API
+   */
+  private processEventParams(params: CalendarCreateEventParams): any {
+    const defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Helper to process a time object
+    const processTime = (timeObj: { dateTime: string; timeZone?: string }) => {
+      // If dateTime already has timezone info (ends with Z or has offset), use as-is
+      if (timeObj.dateTime.match(/[+-]\d{2}:\d{2}$|Z$/)) {
+        return { dateTime: timeObj.dateTime };
+      }
+      
+      // Otherwise, add timezone field
+      return {
+        dateTime: timeObj.dateTime,
+        timeZone: timeObj.timeZone || defaultTimeZone
+      };
+    };
+
+    // Process reminders
+    const processReminders = (reminders?: any) => {
+      if (!reminders) {
+        return { useDefault: true };
+      }
+      
+      if (reminders.useDefault !== undefined) {
+        return reminders;
+      }
+      
+      // Convert simple array format to Google API format if needed
+      if (Array.isArray(reminders)) {
+        return {
+          useDefault: false,
+          overrides: reminders.map((r: any) => {
+            if (typeof r === 'string') {
+              // Parse strings like "10m", "1h", "1d"
+              return this.parseReminderString(r);
+            }
+            return r;
+          })
+        };
+      }
+      
+      return reminders;
+    };
+
+    return {
+      ...params,
+      start: processTime(params.start),
+      end: processTime(params.end),
+      reminders: processReminders(params.reminders)
+    };
+  }
+
+  /**
+   * Parse reminder string format (e.g., "10m", "1h", "1d") to minutes
+   * @param reminderStr - String like "10m", "1h", "1d"
+   * @returns Reminder object with method and minutes
+   */
+  private parseReminderString(reminderStr: string): { method: 'popup'; minutes: number } {
+    const match = reminderStr.match(/^(\d+)([mhd])$/);
+    if (!match) {
+      throw new CalendarError(`Invalid reminder format: ${reminderStr}. Use format like "10m", "1h", "1d"`, MCPErrorCode.ValidationError);
+    }
+
+    const [, value, unit] = match;
+    const num = parseInt(value, 10);
+    
+    let minutes: number;
+    switch (unit) {
+      case 'm':
+        minutes = num;
+        break;
+      case 'h':
+        minutes = num * 60;
+        break;
+      case 'd':
+        minutes = num * 24 * 60;
+        break;
+      default:
+        throw new CalendarError(`Invalid reminder unit: ${unit}. Use m, h, or d`, MCPErrorCode.ValidationError);
+    }
+
+    if (minutes < 0 || minutes > 40320) { // 4 weeks max
+      throw new CalendarError(`Reminder minutes must be between 0 and 40320 (4 weeks)`, MCPErrorCode.ValidationError);
+    }
+
+    return { method: 'popup', minutes };
   }
 
   /**

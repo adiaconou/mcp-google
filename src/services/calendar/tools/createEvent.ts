@@ -77,11 +77,16 @@ async function handleCreateEvent(params: unknown): Promise<MCPToolResult> {
  */
 export const calendarCreateEventTool: ToolDefinition = {
   name: 'calendar_create_event',
-  description: 'Create a new calendar event with simplified input',
+  description: 'Create a new calendar event with timezone and reminder support',
   inputSchema: {
     type: 'object',
     required: ['summary', 'start', 'end'],
     properties: {
+      calendarId: {
+        type: 'string',
+        default: 'primary',
+        description: 'Calendar ID (defaults to primary calendar)'
+      },
       summary: {
         type: 'string',
         description: 'Event title (required)'
@@ -93,7 +98,11 @@ export const calendarCreateEventTool: ToolDefinition = {
           dateTime: {
             type: 'string',
             format: 'date-time',
-            description: 'Start time (ISO format: 2024-01-01T10:00:00Z)'
+            description: 'Start time (ISO format: 2024-01-01T10:00:00 or 2024-01-01T10:00:00Z)'
+          },
+          timeZone: {
+            type: 'string',
+            description: 'IANA timezone (e.g., "America/Los_Angeles"). Auto-detected if not specified.'
           }
         }
       },
@@ -104,7 +113,11 @@ export const calendarCreateEventTool: ToolDefinition = {
           dateTime: {
             type: 'string',
             format: 'date-time',
-            description: 'End time (ISO format: 2024-01-01T11:00:00Z)'
+            description: 'End time (ISO format: 2024-01-01T11:00:00 or 2024-01-01T11:00:00Z)'
+          },
+          timeZone: {
+            type: 'string',
+            description: 'IANA timezone (e.g., "America/Los_Angeles"). Auto-detected if not specified.'
           }
         }
       },
@@ -124,11 +137,48 @@ export const calendarCreateEventTool: ToolDefinition = {
           properties: {
             email: {
               type: 'string',
-              format: 'email'
+              format: 'email',
+              description: 'Attendee email address'
+            },
+            displayName: {
+              type: 'string',
+              description: 'Attendee display name (optional)'
             }
           }
         },
-        description: 'List of attendee email addresses (optional)'
+        description: 'List of attendees (optional)'
+      },
+      reminders: {
+        type: 'object',
+        properties: {
+          useDefault: {
+            type: 'boolean',
+            default: true,
+            description: 'Use calendar default reminders'
+          },
+          overrides: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['method', 'minutes'],
+              properties: {
+                method: {
+                  type: 'string',
+                  enum: ['email', 'popup'],
+                  description: 'Reminder method'
+                },
+                minutes: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 40320,
+                  description: 'Minutes before event (0-40320, max 4 weeks)'
+                }
+              }
+            },
+            description: 'Custom reminder overrides'
+          }
+        },
+        description: 'Event reminders (optional). Supports simple format like ["10m", "1h"] or detailed format.'
       }
     }
   },
