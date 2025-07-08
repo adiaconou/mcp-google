@@ -5,12 +5,15 @@
  * More comprehensive tests will be added in subsequent phases.
  */
 
-import { GoogleMCPServer } from '../src/server.js';
+import { GoogleMCPServer } from '../dist/server.js';
+import { toolRegistry } from '../dist/utils/toolRegistry.js';
 
 describe('GoogleMCPServer', () => {
   let server: GoogleMCPServer;
 
   beforeEach(() => {
+    // Clear the tool registry before each test to avoid duplicate registration
+    toolRegistry.clear();
     server = new GoogleMCPServer();
   });
 
