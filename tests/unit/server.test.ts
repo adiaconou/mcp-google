@@ -5,8 +5,8 @@
  * More comprehensive tests will be added in subsequent phases.
  */
 
-import { GoogleMCPServer } from '../dist/server.js';
-import { toolRegistry } from '../dist/utils/toolRegistry.js';
+import { GoogleMCPServer } from '../../dist/server.js';
+import { toolRegistry } from '../../dist/utils/toolRegistry.js';
 
 describe('GoogleMCPServer', () => {
   let server: GoogleMCPServer;

@@ -44,7 +44,8 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
         content: [{
           type: 'text',
           text: 'No events found.'
-        }]
+        }],
+        isError: false
       };
     }
     
@@ -52,7 +53,8 @@ async function handleListEvents(params: unknown): Promise<MCPToolResult> {
       content: [{
         type: 'text',
         text: events.map(formatEvent).join('\n\n')
-      }]
+      }],
+      isError: false
     };
     
   } catch (error) {

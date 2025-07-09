@@ -57,7 +57,8 @@ async function handleCreateEvent(params: unknown): Promise<MCPToolResult> {
       content: [{
         type: 'text',
         text: formatCreatedEvent(createdEvent)
-      }]
+      }],
+      isError: false
     };
     
   } catch (error) {

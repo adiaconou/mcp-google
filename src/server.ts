@@ -15,9 +15,9 @@ import {
   ListPromptsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { toolRegistry } from './utils/toolRegistry.js';
-import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index.js';
-import { oauthManager } from './auth/oauthManager.js';
+import { toolRegistry } from './utils/toolRegistry';
+import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
+import { oauthManager } from './auth/oauthManager';
 
 /**
  * Google MCP Server - Provides Google Calendar tools via MCP protocol
