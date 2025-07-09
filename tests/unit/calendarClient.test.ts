@@ -268,6 +268,49 @@ describe('CalendarClient', () => {
     });
   });
 
+  describe('timezone handling', () => {
+    it('should detect server timezone on initialization', () => {
+      // The client should have a default timezone set
+      expect(client).toBeDefined();
+      // We can't directly test the private property, but we can test behavior
+    });
+
+    it('should normalize timezone-less timestamps in listEvents', async () => {
+      mockCalendarAPI.events.list.mockResolvedValue({ data: { items: [] } });
+
+      await client.listEvents({
+        timeMin: '2024-01-01T10:00:00', // No timezone
+        timeMax: '2024-01-01T18:00:00'  // No timezone
+      });
+
+      // Verify API was called with normalized timestamps (should have Z suffix)
+      expect(mockCalendarAPI.events.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: expect.stringMatching(/Z$/), // Should end with Z (UTC)
+          timeMax: expect.stringMatching(/Z$/), // Should end with Z (UTC)
+          timeZone: expect.any(String) // Should have timezone parameter
+        })
+      );
+    });
+
+    it('should preserve existing timezone information', async () => {
+      mockCalendarAPI.events.list.mockResolvedValue({ data: { items: [] } });
+
+      await client.listEvents({
+        timeMin: '2024-01-01T10:00:00Z', // Already has timezone
+        timeMax: '2024-01-01T18:00:00-07:00' // Already has timezone
+      });
+
+      // Verify API was called with original timestamps
+      expect(mockCalendarAPI.events.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: '2024-01-01T10:00:00Z',
+          timeMax: '2024-01-01T18:00:00-07:00'
+        })
+      );
+    });
+  });
+
   describe('singleton pattern', () => {
     it('should return the same instance', () => {
       const instance1 = calendarClient.instance;

@@ -110,7 +110,8 @@ describe('Calendar Service Integration', () => {
         maxResults: 10,
         singleEvents: true,
         orderBy: 'startTime',
-        timeMin: '2024-01-01T00:00:00Z'
+        timeMin: '2024-01-01T00:00:00Z',
+        timeZone: expect.any(String) // The client always adds a timezone
       });
 
       // Verify data transformation

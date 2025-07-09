@@ -18,6 +18,7 @@ describe('OAuthManager', () => {
   let originalEnv: NodeJS.ProcessEnv;
   let oauthManager: OAuthManager | undefined;
   let consoleLogSpy: jest.SpyInstance;
+  let createdManagers: OAuthManager[] = [];
 
   beforeEach(() => {
     // Save original environment
@@ -26,18 +27,36 @@ describe('OAuthManager', () => {
     // Set mock environment variables
     Object.assign(process.env, mockEnv);
     
-    // Reset oauth manager
+    // Reset oauth manager and tracking array
     oauthManager = undefined;
+    createdManagers = [];
     
     // Mock console.log to reduce test noise
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    // Cleanup OAuth manager if it exists
+    // Cleanup all created OAuth managers
+    createdManagers.forEach(manager => {
+      try {
+        manager.cleanup();
+      } catch (error) {
+        // Ignore cleanup errors in tests
+      }
+    });
+    
+    // Cleanup main OAuth manager if it exists
     if (oauthManager) {
-      oauthManager.cleanup();
+      try {
+        oauthManager.cleanup();
+      } catch (error) {
+        // Ignore cleanup errors in tests
+      }
     }
+    
+    // Clear tracking array
+    createdManagers = [];
+    oauthManager = undefined;
     
     // Restore console.log
     consoleLogSpy.mockRestore();
@@ -46,35 +65,54 @@ describe('OAuthManager', () => {
     process.env = originalEnv;
   });
 
+  afterAll(() => {
+    // Final cleanup to ensure no resources are left hanging
+    createdManagers.forEach(manager => {
+      try {
+        manager.cleanup();
+      } catch (error) {
+        // Ignore cleanup errors in tests
+      }
+    });
+    createdManagers = [];
+  });
+
+  // Helper function to create and track OAuth managers
+  const createOAuthManager = (): OAuthManager => {
+    const manager = new OAuthManager();
+    createdManagers.push(manager);
+    return manager;
+  };
+
   describe('Constructor', () => {
     it('should create OAuth manager with valid environment variables', () => {
-      expect(() => new OAuthManager()).not.toThrow();
+      expect(() => createOAuthManager()).not.toThrow();
     });
 
     it('should throw CalendarError when GOOGLE_CLIENT_ID is missing', () => {
       delete process.env.GOOGLE_CLIENT_ID;
       
-      expect(() => new OAuthManager()).toThrow(CalendarError);
-      expect(() => new OAuthManager()).toThrow('Missing required OAuth credentials');
+      expect(() => createOAuthManager()).toThrow(CalendarError);
+      expect(() => createOAuthManager()).toThrow('Missing required OAuth credentials');
     });
 
     it('should throw CalendarError when GOOGLE_CLIENT_SECRET is missing', () => {
       delete process.env.GOOGLE_CLIENT_SECRET;
       
-      expect(() => new OAuthManager()).toThrow(CalendarError);
-      expect(() => new OAuthManager()).toThrow('Missing required OAuth credentials');
+      expect(() => createOAuthManager()).toThrow(CalendarError);
+      expect(() => createOAuthManager()).toThrow('Missing required OAuth credentials');
     });
 
     it('should use default redirect URI when not provided', () => {
       delete process.env.GOOGLE_REDIRECT_URI;
       
-      expect(() => new OAuthManager()).not.toThrow();
+      expect(() => createOAuthManager()).not.toThrow();
     });
   });
 
   describe('getAuthorizationUrl', () => {
     it('should generate authorization URL with expanded scopes', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       const authUrl = await oauthManager.getAuthorizationUrl();
       
       expect(authUrl).toContain('https://accounts.google.com/o/oauth2/v2/auth');
@@ -88,7 +126,7 @@ describe('OAuthManager', () => {
     });
 
     it('should generate different state and challenge each time', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       
       const authUrl1 = await oauthManager.getAuthorizationUrl();
       const authUrl2 = await oauthManager.getAuthorizationUrl();
@@ -105,7 +143,7 @@ describe('OAuthManager', () => {
 
   describe('isAuthenticated', () => {
     it('should return false when no tokens exist', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       const isAuth = await oauthManager.isAuthenticated();
       
       expect(isAuth).toBe(false);
@@ -114,7 +152,7 @@ describe('OAuthManager', () => {
 
   describe('getAuthStatus', () => {
     it('should return correct status when not authenticated', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       const status = await oauthManager.getAuthStatus();
       
       expect(status).toEqual({
@@ -126,7 +164,7 @@ describe('OAuthManager', () => {
 
   describe('getAccessToken', () => {
     it('should throw CalendarError when not authenticated', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       
       await expect(oauthManager.getAccessToken()).rejects.toThrow(CalendarError);
       await expect(oauthManager.getAccessToken()).rejects.toThrow('No authentication tokens found');
@@ -135,7 +173,7 @@ describe('OAuthManager', () => {
 
   describe('getOAuth2Client', () => {
     it('should throw CalendarError when not authenticated', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       
       await expect(oauthManager.getOAuth2Client()).rejects.toThrow(CalendarError);
       await expect(oauthManager.getOAuth2Client()).rejects.toThrow('Not authenticated');
@@ -144,7 +182,7 @@ describe('OAuthManager', () => {
 
   describe('clearTokens', () => {
     it('should not throw when no tokens exist', async () => {
-      const oauthManager = new OAuthManager();
+      const oauthManager = createOAuthManager();
       
       await expect(oauthManager.clearTokens()).resolves.not.toThrow();
     });

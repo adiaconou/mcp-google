@@ -23,6 +23,16 @@ import {
  */
 export class CalendarClient {
   private calendar: calendar_v3.Calendar | null = null;
+  private readonly defaultTimeZone: string;
+
+  constructor() {
+    // Detect server timezone with fallback to UTC
+    try {
+      this.defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      this.defaultTimeZone = 'UTC';
+    }
+  }
 
   /**
    * Initialize the Calendar API client with OAuth authentication
@@ -64,6 +74,36 @@ export class CalendarClient {
   }
 
   /**
+   * Normalize a date-time string to ensure it has timezone information
+   * @param dateTime - The date-time string to normalize
+   * @returns Normalized date-time string with timezone information
+   */
+  private normalizeDateTime(dateTime: string): string {
+    // If already has timezone info (Z or ±HH:MM), return as-is
+    if (dateTime.match(/[+-]\d{2}:\d{2}$|Z$/)) {
+      return dateTime;
+    }
+    
+    // Convert to UTC timestamp
+    
+    try {
+      // Parse the date and convert to ISO string (UTC)
+      const date = new Date(dateTime);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      
+      // Return as UTC ISO string
+      return date.toISOString();
+    } catch {
+      throw new CalendarError(
+        `Invalid date format: ${dateTime}. Use ISO 8601 format (e.g., 2024-01-01T10:00:00)`,
+        MCPErrorCode.ValidationError
+      );
+    }
+  }
+
+  /**
    * List calendar events with optional filtering
    * @param params - Parameters for listing events
    * @returns Promise resolving to array of calendar events
@@ -73,15 +113,32 @@ export class CalendarClient {
     try {
       const calendar = await this.ensureInitialized();
       
-      // Set default parameters
+      // Normalize date-time parameters if provided
+      const normalizedParams = { ...params };
+      if (params.timeMin) {
+        normalizedParams.timeMin = this.normalizeDateTime(params.timeMin);
+      }
+      if (params.timeMax) {
+        normalizedParams.timeMax = this.normalizeDateTime(params.timeMax);
+      }
+      
+      // Set default parameters with normalized timestamps
       const requestParams: calendar_v3.Params$Resource$Events$List = {
-        calendarId: params.calendarId || 'primary',
-        maxResults: Math.min(params.maxResults || 10, 100), // Cap at 100
+        calendarId: normalizedParams.calendarId || 'primary',
+        maxResults: Math.min(normalizedParams.maxResults || 10, 100), // Cap at 100
         singleEvents: true,
         orderBy: 'startTime',
-        timeMin: params.timeMin || new Date().toISOString(),
-        ...params
+        timeMin: normalizedParams.timeMin || new Date().toISOString(),
+        timeZone: normalizedParams.timeZone || this.defaultTimeZone
       };
+
+      // Add optional parameters only if they have values
+      if (normalizedParams.timeMax) {
+        requestParams.timeMax = normalizedParams.timeMax;
+      }
+      if (normalizedParams.q) {
+        requestParams.q = normalizedParams.q;
+      }
 
       console.error(`Listing events for calendar: ${requestParams.calendarId}`);
       
