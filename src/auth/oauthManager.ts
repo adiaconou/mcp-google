@@ -1,9 +1,9 @@
 /**
- * OAuth Manager - Simple OAuth 2.0 implementation for Google Calendar API
+ * OAuth Manager - Multi-Service OAuth 2.0 implementation for Google APIs
  * 
  * This file implements OAuth 2.0 with PKCE for secure authentication with
- * Google Calendar API. It handles the complete OAuth flow, token management,
- * and automatic token refresh.
+ * multiple Google APIs (Calendar, Gmail, Drive, Docs, Sheets). It handles 
+ * the complete OAuth flow, token management, and automatic token refresh.
  */
 
 import { google } from 'googleapis';
@@ -72,10 +72,11 @@ interface PortCheckResult {
 }
 
 /**
- * OAuth Manager for Google Calendar API authentication
+ * OAuth Manager for Google APIs authentication
  * 
  * Implements OAuth 2.0 with PKCE for secure authentication and token management.
  * Handles the complete OAuth flow including authorization, token exchange, and refresh.
+ * Supports multiple Google services: Calendar, Gmail, Drive, Docs, and Sheets.
  */
 export class OAuthManager {
   private oauth2Client: OAuth2Client;

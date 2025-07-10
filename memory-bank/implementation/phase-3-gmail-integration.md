@@ -36,7 +36,7 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 - Establish patterns for additional Google API integrations
 
 ## Implementation Steps
-1. ☐ Extend OAuth manager to support Gmail scopes (simple scope addition)
+1. ☑ Extend OAuth manager to support Gmail scopes (simple scope addition)
 2. ☐ Create Gmail API client following calendar client patterns
 3. ☐ Create `gmail_list_messages` tool with filtering
 4. ☐ Implement `gmail_get_message` tool for reading emails

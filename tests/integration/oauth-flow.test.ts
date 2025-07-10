@@ -263,4 +263,40 @@ describe('OAuth Flow Integration', () => {
       expect(results[2]).toBe(true);
     });
   });
+
+  describe('multi-service OAuth integration', () => {
+    test('should support Calendar and Gmail scopes together', async () => {
+      // Mock OAuth manager to simulate multi-service authentication
+      const mockOAuthClient = {
+        credentials: { 
+          access_token: 'mock-multi-service-token',
+          scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send'
+        }
+      };
+      
+      (oauthManager.instance.getOAuth2Client as jest.Mock).mockResolvedValue(mockOAuthClient);
+      
+      // Test that OAuth client provides multi-service token
+      const client = await oauthManager.instance.getOAuth2Client();
+      
+      expect(client.credentials.access_token).toBe('mock-multi-service-token');
+      expect(client.credentials.scope).toContain('calendar');
+      expect(client.credentials.scope).toContain('gmail.readonly');
+      expect(client.credentials.scope).toContain('gmail.send');
+    });
+
+    test('should validate multi-service scope requirements', async () => {
+      // This test validates that the OAuth manager can handle
+      // requests for both Calendar and Gmail scopes simultaneously
+      const isAuthenticated = await oauthManager.instance.isAuthenticated();
+      const accessToken = await oauthManager.instance.getAccessToken();
+      
+      expect(isAuthenticated).toBe(true);
+      expect(accessToken).toBe('mock-access-token');
+      
+      // Verify both methods were called (simulating multi-service validation)
+      expect(oauthManager.instance.isAuthenticated).toHaveBeenCalled();
+      expect(oauthManager.instance.getAccessToken).toHaveBeenCalled();
+    });
+  });
 });

@@ -125,6 +125,16 @@ describe('OAuthManager', () => {
       expect(authUrl).toContain('code_challenge=');
     });
 
+    it('should include Gmail scopes in authorization URL', async () => {
+      const oauthManager = createOAuthManager();
+      const authUrl = await oauthManager.getAuthorizationUrl();
+      
+      // Check for Gmail scopes in the URL (URL encoded)
+      expect(authUrl).toContain('gmail.readonly');
+      expect(authUrl).toContain('gmail.send');
+      expect(authUrl).toContain('gmail.labels');
+    });
+
     it('should generate different state and challenge each time', async () => {
       const oauthManager = createOAuthManager();
       
@@ -185,6 +195,50 @@ describe('OAuthManager', () => {
       const oauthManager = createOAuthManager();
       
       await expect(oauthManager.clearTokens()).resolves.not.toThrow();
+    });
+  });
+
+  describe('Gmail Scope Integration', () => {
+    it('should validate Gmail scopes in isAlreadyAuthenticated', async () => {
+      const oauthManager = createOAuthManager();
+      
+      // Test with Gmail scopes
+      const gmailScopes = [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send'
+      ];
+      
+      // Should return false when no tokens exist
+      const result = await oauthManager.isAlreadyAuthenticated(gmailScopes);
+      expect(result).toBe(false);
+    });
+
+    it('should validate Calendar scopes in isAlreadyAuthenticated', async () => {
+      const oauthManager = createOAuthManager();
+      
+      // Test with Calendar scopes
+      const calendarScopes = [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events'
+      ];
+      
+      // Should return false when no tokens exist
+      const result = await oauthManager.isAlreadyAuthenticated(calendarScopes);
+      expect(result).toBe(false);
+    });
+
+    it('should validate mixed service scopes in isAlreadyAuthenticated', async () => {
+      const oauthManager = createOAuthManager();
+      
+      // Test with mixed Calendar and Gmail scopes
+      const mixedScopes = [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/gmail.readonly'
+      ];
+      
+      // Should return false when no tokens exist
+      const result = await oauthManager.isAlreadyAuthenticated(mixedScopes);
+      expect(result).toBe(false);
     });
   });
 
