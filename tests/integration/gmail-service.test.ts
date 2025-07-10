@@ -23,6 +23,7 @@ jest.mock('../../src/auth/oauthManager', () => ({
 
 import { GmailClient } from '../../src/services/gmail/gmailClient';
 import { gmailListMessagesTool } from '../../src/services/gmail/tools/listMessages';
+import { gmailGetMessageTool } from '../../src/services/gmail/tools/getMessage';
 import { oauthManager } from '../../src/auth/oauthManager';
 
 // Mock Gmail API
@@ -131,7 +132,7 @@ describe('Gmail Service Integration', () => {
       expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
         userId: 'me',
         id: 'msg-1',
-        format: 'full'
+        format: 'metadata'
       });
 
       // Verify data transformation
@@ -446,6 +447,231 @@ describe('Gmail Service Integration', () => {
       expect(Array.isArray(results[0])).toBe(true);
       expect(Array.isArray(results[1])).toBe(true);
       expect(Array.isArray(results[2])).toBe(true);
+    });
+  });
+
+  describe('getMessage integration with metadata format', () => {
+    test('should retrieve message successfully with metadata format', async () => {
+      // Test the exact scenario that was failing - using a message ID like the user encountered
+      const testMessageId = '1906eadbc76bbcc7';
+      const mockMessage = {
+        data: {
+          id: testMessageId,
+          threadId: 'thread-abc123',
+          snippet: 'This is a test message that should work with metadata format...',
+          labelIds: ['INBOX'],
+          payload: {
+            headers: [
+              { name: 'Subject', value: 'Test Message Subject' },
+              { name: 'From', value: 'sender@example.com' },
+              { name: 'To', value: 'recipient@example.com' },
+              { name: 'Date', value: 'Thu, 18 Jan 2024 14:30:00 +0000' }
+            ],
+            body: {
+              data: Buffer.from('This is the message body content').toString('base64')
+            }
+          }
+        }
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue(mockMessage);
+
+      // Test Gmail client getMessage directly
+      const message = await gmailClient.getMessage(testMessageId);
+
+      // Verify API call uses metadata format
+      expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
+        userId: 'me',
+        id: testMessageId,
+        format: 'metadata'
+      });
+
+      // Verify message data transformation
+      expect(message).toEqual({
+        id: testMessageId,
+        threadId: 'thread-abc123',
+        snippet: 'This is a test message that should work with metadata format...',
+        subject: 'Test Message Subject',
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        date: 'Thu, 18 Jan 2024 14:30:00 +0000',
+        body: 'This is the message body content',
+        isRead: true,
+        labels: ['INBOX']
+      });
+    });
+
+    test('should integrate getMessage tool with Gmail client successfully', async () => {
+      const testMessageId = '1906eadbc76bbcc7';
+      const mockMessage = {
+        data: {
+          id: testMessageId,
+          threadId: 'thread-def456',
+          snippet: 'Tool integration test message...',
+          labelIds: ['INBOX', 'IMPORTANT'],
+          payload: {
+            headers: [
+              { name: 'Subject', value: 'Important Tool Test' },
+              { name: 'From', value: 'important@example.com' },
+              { name: 'To', value: 'user@example.com' },
+              { name: 'Date', value: 'Fri, 19 Jan 2024 09:15:00 +0000' }
+            ],
+            body: {
+              data: Buffer.from('This is an important message for tool testing').toString('base64')
+            }
+          }
+        }
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue(mockMessage);
+
+      // Test getMessage tool
+      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+
+      expect(result.isError).toBe(false);
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0].type).toBe('text');
+      
+      const text = result.content[0].text;
+      expect(text).toContain(`Message ID: ${testMessageId}`);
+      expect(text).toContain('Subject: Important Tool Test');
+      expect(text).toContain('From: important@example.com');
+      expect(text).toContain('To: user@example.com');
+      expect(text).toContain('Status: READ');
+      expect(text).toContain('Labels: INBOX, IMPORTANT');
+      expect(text).toContain('--- Message Body ---');
+      expect(text).toContain('This is an important message for tool testing');
+    });
+
+    test('should handle 404 errors gracefully with improved error message', async () => {
+      const testMessageId = 'nonexistent-message-id';
+      
+      mockGmailApi.users.messages.get.mockRejectedValue({
+        code: 404,
+        message: 'Requested entity was not found.'
+      });
+
+      // Test Gmail client error handling
+      await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Gmail resource not found during get message');
+
+      // Test tool error handling
+      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Gmail resource not found during get message');
+    });
+
+    test('should handle messages with minimal metadata gracefully', async () => {
+      const testMessageId = 'minimal-message-id';
+      const mockMinimalMessage = {
+        data: {
+          id: testMessageId,
+          threadId: 'thread-minimal',
+          snippet: 'Minimal message with no headers',
+          labelIds: ['INBOX'],
+          payload: {
+            headers: [], // No headers
+            body: { data: '' } // No body
+          }
+        }
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue(mockMinimalMessage);
+
+      const message = await gmailClient.getMessage(testMessageId);
+
+      expect(message).toEqual({
+        id: testMessageId,
+        threadId: 'thread-minimal',
+        snippet: 'Minimal message with no headers',
+        body: '',
+        isRead: true,
+        labels: ['INBOX']
+      });
+
+      // Test tool formatting with minimal message
+      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain(`Message ID: ${testMessageId}`);
+      expect(result.content[0].text).toContain('[Preview]: Minimal message with no headers');
+    });
+
+    test('should handle authentication errors in getMessage', async () => {
+      const testMessageId = 'auth-test-message';
+      
+      mockGmailApi.users.messages.get.mockRejectedValue({
+        code: 401,
+        message: 'Authentication failed'
+      });
+
+      await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Authentication failed');
+
+      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Authentication failed');
+    });
+
+    test('should handle rate limiting in getMessage', async () => {
+      const testMessageId = 'rate-limit-test';
+      
+      mockGmailApi.users.messages.get.mockRejectedValue({
+        code: 429,
+        message: 'Rate limit exceeded'
+      });
+
+      await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Rate limit exceeded');
+    });
+
+    test('should validate messageId parameter in getMessage tool', async () => {
+      // Test missing messageId
+      let result = await gmailGetMessageTool.handler({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+
+      // Test invalid messageId type
+      result = await gmailGetMessageTool.handler({ messageId: 123 });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+
+      // Test empty messageId
+      result = await gmailGetMessageTool.handler({ messageId: '   ' });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: messageId cannot be empty');
+    });
+
+    test('should handle concurrent getMessage operations', async () => {
+      const messageIds = ['msg1', 'msg2', 'msg3'];
+      const mockMessages = messageIds.map((id, index) => ({
+        data: {
+          id,
+          threadId: `thread-${id}`,
+          snippet: `Message ${index + 1} snippet`,
+          labelIds: ['INBOX'],
+          payload: {
+            headers: [
+              { name: 'Subject', value: `Subject ${index + 1}` },
+              { name: 'From', value: `sender${index + 1}@example.com` }
+            ],
+            body: { data: '' }
+          }
+        }
+      }));
+
+      mockGmailApi.users.messages.get
+        .mockResolvedValueOnce(mockMessages[0])
+        .mockResolvedValueOnce(mockMessages[1])
+        .mockResolvedValueOnce(mockMessages[2]);
+
+      // Execute concurrent getMessage operations
+      const promises = messageIds.map(id => gmailClient.getMessage(id));
+      const results = await Promise.all(promises);
+
+      expect(results).toHaveLength(3);
+      expect(results[0].id).toBe('msg1');
+      expect(results[1].id).toBe('msg2');
+      expect(results[2].id).toBe('msg3');
     });
   });
 

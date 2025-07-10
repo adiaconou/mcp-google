@@ -185,12 +185,13 @@ export class GmailClient {
       const gmail = await this.ensureInitialized();
       
       console.error(`Getting Gmail message: ${messageId}`);
+      console.error(`Making API call with userId: 'me', id: '${messageId}', format: 'metadata'`);
       
-      // Make API request to get message
+      // Make API request to get message - using 'metadata' format for better compatibility
       const response = await gmail.users.messages.get({
         userId: 'me',
         id: messageId,
-        format: 'full'
+        format: 'metadata'
       });
 
       if (!response.data) {

@@ -219,7 +219,7 @@ describe('GmailClient', () => {
       expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
         userId: 'me',
         id: 'msg1',
-        format: 'full'
+        format: 'metadata'
       });
     });
 
