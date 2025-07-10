@@ -13,7 +13,8 @@ import { oauthManager } from '../../src/auth/oauthManager';
 jest.mock('../../src/auth/oauthManager', () => ({
   oauthManager: {
     instance: {
-      getOAuth2Client: jest.fn()
+      getOAuth2Client: jest.fn(),
+      ensureScopes: jest.fn().mockResolvedValue(undefined)
     }
   }
 }));

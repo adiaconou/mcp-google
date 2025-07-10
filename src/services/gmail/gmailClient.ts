@@ -66,20 +66,31 @@ export class GmailClient {
   }
 
   /**
-   * Initialize the Gmail API client with OAuth authentication
+   * Initialize Gmail API client with authentication and scope validation
    * @throws {CalendarError} If authentication fails
    */
   private async initializeClient(): Promise<void> {
     try {
-      // Get authenticated OAuth2 client
-      const auth = await oauthManager.instance.getOAuth2Client();
-      
-      // Initialize Gmail API client
-      this.gmail = google.gmail({ version: 'v1', auth });
-      
+      // Ensure we have all required Gmail scopes before initializing
+      await oauthManager.instance.ensureScopes([
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.labels'
+      ]);
+
+      const oauth2Client = await oauthManager.instance.getOAuth2Client();
+      this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      console.error('Gmail API client initialized successfully');
     } catch (error) {
+      // Handle scope-related errors specifically
+      if (error instanceof CalendarError && error.message.includes('Missing required scopes')) {
+        throw new CalendarError(
+          'Gmail access requires additional permissions. Please reauthenticate to grant Gmail access.',
+          MCPErrorCode.AuthenticationError
+        );
+      }
       throw new CalendarError(
-        `Failed to initialize Gmail API client: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'Failed to initialize Gmail API client: User is not authenticated',
         MCPErrorCode.AuthenticationError
       );
     }
@@ -359,21 +370,24 @@ export class GmailClient {
   }
 
   /**
-   * Create email message in RFC 2822 format for sending
-   * @param params - Message parameters
-   * @returns Base64 encoded email message
+   * Create email message in RFC 2822 format for Gmail API
+   * @param params - Parameters for creating the message
+   * @returns Base64url encoded email message
    */
   private createEmailMessage(params: GmailSendMessageParams): string {
     const lines: string[] = [];
     
     // Add headers
     lines.push(`To: ${params.to.join(', ')}`);
+    
     if (params.cc && params.cc.length > 0) {
       lines.push(`Cc: ${params.cc.join(', ')}`);
     }
+    
     if (params.bcc && params.bcc.length > 0) {
       lines.push(`Bcc: ${params.bcc.join(', ')}`);
     }
+    
     lines.push(`Subject: ${params.subject}`);
     
     if (params.replyToMessageId) {

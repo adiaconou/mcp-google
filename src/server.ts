@@ -17,7 +17,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
-import { gmailListMessagesTool } from './services/gmail/tools/listMessages';
+import { gmailListMessagesTool, gmailGetMessageTool } from './services/gmail/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -90,6 +90,44 @@ export class GoogleMCPServer {
         
         console.error(`[MCP Server] Executing tool: ${name}`);
         
+        // Check authentication before executing any tool
+        const isAuth = await oauthManager.instance.isAuthenticated();
+        if (!isAuth) {
+          console.error(`[MCP Server] Authentication required for tool: ${name}`);
+          console.error(`[MCP Server] Attempting to trigger OAuth flow automatically...`);
+          
+          try {
+            // Automatically trigger OAuth flow
+            await oauthManager.instance.authenticate();
+            console.error(`[MCP Server] Authentication completed successfully, retrying tool execution...`);
+            
+            // Verify authentication worked
+            const isAuthAfter = await oauthManager.instance.isAuthenticated();
+            if (!isAuthAfter) {
+              throw new Error('Authentication completed but verification failed');
+            }
+            
+            // Authentication successful, continue with tool execution
+            console.error(`[MCP Server] Authentication verified, executing tool: ${name}`);
+            
+          } catch (authError) {
+            console.error(`[MCP Server] OAuth flow failed:`, authError);
+            
+            // Get detailed authentication guidance for manual steps
+            const guidance = await oauthManager.instance.getAuthenticationGuidance();
+            
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: `🔐 Automatic Authentication Failed\n\nThe OAuth flow could not be completed automatically.\n\n${guidance}\n\nRequested tool: ${name}\n\nError details: ${authError instanceof Error ? authError.message : 'Unknown error'}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+        
         // Execute the tool using our registry
         const result = await toolRegistry.executeTool(name, args || {});
         
@@ -101,7 +139,24 @@ export class GoogleMCPServer {
       } catch (error) {
         console.error(`[MCP Server] Error executing tool ${request.params.name}:`, error);
         
-        // Return error in MCP format
+        // Check if this is an authentication-related error
+        if (error instanceof Error && 
+            (error.message.includes('authentication') || 
+             error.message.includes('unauthorized') ||
+             error.message.includes('invalid_grant') ||
+             error.message.includes('scope'))) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `🔐 Authentication Error\n\nYour authentication has expired or is invalid.\n\n📋 Steps to fix:\n1. Run: node clear-tokens-enhanced.js\n2. Restart Claude Desktop completely\n3. Try this tool again\n4. Complete the OAuth flow when prompted\n\nError details: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        // Return generic error in MCP format
         return {
           content: [
             {
@@ -142,6 +197,7 @@ export class GoogleMCPServer {
       
       // Register Gmail tools
       toolRegistry.register(gmailListMessagesTool);
+      toolRegistry.register(gmailGetMessageTool);
       
       const stats = toolRegistry.getStats();
       console.error(`[MCP Server] Registered ${stats.totalTools} tools: ${stats.toolNames.join(', ')}`);
@@ -180,8 +236,8 @@ export class GoogleMCPServer {
     try {
       console.error('[MCP Server] Starting Google MCP Server...');
       
-      // Ensure authentication before starting MCP server
-      await this.ensureAuthentication();
+      // Note: Authentication is now handled per-tool to ensure visibility in Claude Desktop
+      console.error('[MCP Server] Authentication will be handled when tools are called');
       
       // Connect the server to stdio transport
       await this.server.connect(this.transport);

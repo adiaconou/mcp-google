@@ -5,8 +5,9 @@
  * established calendar tool patterns with minimal complexity.
  */
 
-import { ToolDefinition, MCPToolResult } from '../../../types/mcp';
+import { ToolDefinition, MCPToolResult, CalendarError, MCPErrorCode } from '../../../types/mcp';
 import { gmailClient, GmailListMessagesParams, GmailMessage } from '../gmailClient';
+import { oauthManager } from '../../../auth/oauthManager';
 
 /**
  * Format a Gmail message for display (simplified)
@@ -64,6 +65,26 @@ async function handleListMessages(params: unknown): Promise<MCPToolResult> {
     };
     
   } catch (error) {
+    // Enhanced error handling with automatic scope management
+    if (error instanceof CalendarError && error.code === MCPErrorCode.AuthenticationError) {
+      // Check if this is a scope-related error
+      if (error.message.includes('Missing required scopes') || error.message.includes('Gmail access requires additional permissions')) {
+        try {
+          // Attempt to handle the scope error automatically
+          await oauthManager.instance.handleInsufficientScopeError(error);
+        } catch (scopeError) {
+          // Return helpful error message for scope issues
+          return {
+            content: [{
+              type: 'text',
+              text: `Gmail access requires additional permissions. Please run "node clear-tokens.js" and restart the MCP server to reauthenticate with Gmail permissions.`
+            }],
+            isError: true
+          };
+        }
+      }
+    }
+
     // Consistent error handling pattern with calendar tools
     return {
       content: [{

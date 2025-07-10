@@ -701,6 +701,228 @@ export class OAuthManager {
   }
 
   /**
+   * Force clear stored tokens and trigger reauthentication (Phase 1: Immediate Fix)
+   * This method provides a manual way to reset authentication when scope issues occur
+   */
+  async forceReauthentication(): Promise<void> {
+    console.error('Forcing reauthentication - clearing stored tokens');
+    await this.clearTokens();
+    console.error('Tokens cleared. Next authentication request will trigger fresh OAuth flow.');
+  }
+
+  /**
+   * Get current scopes from stored tokens
+   * @returns Array of current scopes or empty array if no tokens
+   */
+  getCurrentScopes(): string[] {
+    try {
+      const tokens = this.loadTokens();
+      if (!tokens) {
+        return [];
+      }
+      // Note: loadTokens is async, but we need sync access for utility methods
+      // This is a limitation we'll address in the async version below
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get current scopes from stored tokens (async version)
+   * @returns Promise resolving to array of current scopes
+   */
+  async getCurrentScopesAsync(): Promise<string[]> {
+    try {
+      const tokens = await this.loadTokens();
+      if (!tokens || !tokens.scope) {
+        return [];
+      }
+      return tokens.scope.split(' ').filter(scope => scope.trim().length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get required scopes for all configured services
+   * @returns Array of required scopes
+   */
+  getRequiredScopes(): string[] {
+    return [...this.config.scopes];
+  }
+
+  /**
+   * Compare current scopes with required scopes
+   * @param current - Current scopes array
+   * @param required - Required scopes array
+   * @returns Object with missing and extra scopes
+   */
+  compareScopes(current: string[], required: string[]): { missing: string[], extra: string[] } {
+    const missing = required.filter(scope => !current.includes(scope));
+    const extra = current.filter(scope => !required.includes(scope));
+    return { missing, extra };
+  }
+
+  /**
+   * Validate that current tokens have all required scopes (Phase 2: Enhanced Detection)
+   * @returns Promise resolving to true if all scopes present, false if missing
+   */
+  async validateTokenScopes(): Promise<boolean> {
+    try {
+      const tokens = await this.loadTokens();
+      if (!tokens) {
+        console.error('No tokens found for scope validation');
+        return false;
+      }
+
+      const hasScopes = this.hasRequiredScopes(tokens);
+      if (!hasScopes) {
+        const currentScopes = await this.getCurrentScopesAsync();
+        const requiredScopes = this.getRequiredScopes();
+        const comparison = this.compareScopes(currentScopes, requiredScopes);
+        
+        console.error('Scope validation failed:');
+        console.error(`Required scopes: ${requiredScopes.join(', ')}`);
+        console.error(`Current scopes: ${currentScopes.join(', ')}`);
+        console.error(`Missing scopes: ${comparison.missing.join(', ')}`);
+        
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error validating token scopes:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Ensure current authentication includes all required scopes (Phase 2: Enhanced Detection)
+   * Automatically triggers reauthentication if scopes are missing
+   * @param additionalScopes - Optional additional scopes to require
+   * @returns Promise resolving when scopes are ensured
+   */
+  async ensureScopes(additionalScopes: string[] = []): Promise<void> {
+    try {
+      // Combine required scopes with any additional scopes
+      const allRequiredScopes = [...this.config.scopes, ...additionalScopes];
+      
+      const tokens = await this.loadTokens();
+      if (!tokens) {
+        console.error('No tokens found - authentication required');
+        throw new CalendarError(
+          'Authentication required. No tokens found.',
+          MCPErrorCode.AuthenticationError
+        );
+      }
+
+      // Check if current tokens have all required scopes
+      const currentScopes = tokens.scope ? tokens.scope.split(' ') : [];
+      const comparison = this.compareScopes(currentScopes, allRequiredScopes);
+      
+      if (comparison.missing.length > 0) {
+        console.error(`Missing required scopes: ${comparison.missing.join(', ')}`);
+        console.error('Triggering automatic reauthentication...');
+        
+        // Clear current tokens and force reauthentication
+        await this.forceReauthentication();
+        
+        throw new CalendarError(
+          `Missing required scopes: ${comparison.missing.join(', ')}. Please reauthenticate to grant additional permissions.`,
+          MCPErrorCode.AuthenticationError
+        );
+      }
+
+      console.error('All required scopes are present');
+    } catch (error) {
+      if (error instanceof CalendarError) {
+        throw error;
+      }
+      throw new CalendarError(
+        `Failed to ensure scopes: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MCPErrorCode.AuthenticationError
+      );
+    }
+  }
+
+  /**
+   * Handle insufficient scope errors from Google APIs (Phase 2: Enhanced Detection)
+   * Automatically detects and handles 403 "insufficient scope" errors
+   * @param error - Error from Google API call
+   * @returns Promise resolving when error is handled
+   */
+  async handleInsufficientScopeError(error: any): Promise<void> {
+    try {
+      // Check if this is an insufficient scope error
+      const isInsufficientScope = 
+        error?.code === 403 ||
+        error?.status === 403 ||
+        (error?.message && error.message.toLowerCase().includes('insufficient')) ||
+        (error?.message && error.message.toLowerCase().includes('scope'));
+
+      if (isInsufficientScope) {
+        console.error('Detected insufficient scope error from Google API');
+        console.error('Error details:', error.message || error);
+        
+        // Force reauthentication to get proper scopes
+        await this.forceReauthentication();
+        
+        throw new CalendarError(
+          'Insufficient permissions for this operation. Authentication has been reset. Please try again to grant the required permissions.',
+          MCPErrorCode.AuthenticationError
+        );
+      }
+
+      // If not a scope error, re-throw the original error
+      throw error;
+    } catch (error) {
+      if (error instanceof CalendarError) {
+        throw error;
+      }
+      throw new CalendarError(
+        `Failed to handle API error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MCPErrorCode.InternalError
+      );
+    }
+  }
+
+  /**
+   * Request additional scopes through incremental authorization (Phase 2: Enhanced Detection)
+   * @param newScopes - Array of new scopes to request
+   * @returns Promise resolving when additional scopes are granted
+   */
+  async requestAdditionalScopes(newScopes: string[]): Promise<void> {
+    try {
+      console.error(`Requesting additional scopes: ${newScopes.join(', ')}`);
+      
+      // Add new scopes to the configuration
+      const currentScopes = this.getRequiredScopes();
+      const uniqueNewScopes = newScopes.filter(scope => !currentScopes.includes(scope));
+      
+      if (uniqueNewScopes.length === 0) {
+        console.error('All requested scopes are already configured');
+        return;
+      }
+
+      // Update configuration with new scopes
+      this.config.scopes.push(...uniqueNewScopes);
+      
+      console.error(`Added ${uniqueNewScopes.length} new scopes to configuration`);
+      console.error('Triggering reauthentication to grant new permissions...');
+      
+      // Force reauthentication with updated scopes
+      await this.forceReauthentication();
+      
+    } catch (error) {
+      throw new CalendarError(
+        `Failed to request additional scopes: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MCPErrorCode.AuthenticationError
+      );
+    }
+  }
+
+  /**
    * Enhanced authentication status reporting (Phase 2.4)
    * @returns Comprehensive authentication status object
    */
@@ -780,6 +1002,97 @@ export class OAuthManager {
       console.error('Error checking if already authenticated:', error);
       return false;
     }
+  }
+
+  /**
+   * Check if authentication should be triggered and provide reason
+   * @returns Object with authentication status and reason
+   */
+  async shouldTriggerAuth(): Promise<{ needed: boolean; reason: string; action: string }> {
+    try {
+      const tokens = await this.loadTokens();
+      
+      // No tokens exist
+      if (!tokens) {
+        return {
+          needed: true,
+          reason: 'No authentication tokens found',
+          action: 'Initial authentication required'
+        };
+      }
+      
+      // Check if tokens have required scopes
+      if (!this.hasRequiredScopes(tokens)) {
+        const currentScopes = await this.getCurrentScopesAsync();
+        const requiredScopes = this.getRequiredScopes();
+        const comparison = this.compareScopes(currentScopes, requiredScopes);
+        
+        return {
+          needed: true,
+          reason: `Missing required scopes: ${comparison.missing.join(', ')}`,
+          action: 'Reauthentication required for additional permissions'
+        };
+      }
+      
+      // Check if tokens are expired and can't be refreshed
+      if (tokens.expiryDate <= Date.now()) {
+        const canRefresh = await this.refreshTokens();
+        if (!canRefresh) {
+          return {
+            needed: true,
+            reason: 'Authentication tokens have expired and cannot be refreshed',
+            action: 'Reauthentication required due to expired tokens'
+          };
+        }
+      }
+      
+      // Authentication is valid
+      return {
+        needed: false,
+        reason: 'Authentication is valid and current',
+        action: 'No action needed'
+      };
+      
+    } catch (error) {
+      return {
+        needed: true,
+        reason: `Authentication check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        action: 'Reauthentication recommended due to error'
+      };
+    }
+  }
+
+  /**
+   * Get detailed authentication guidance for users
+   * @returns Formatted guidance text for authentication issues
+   */
+  async getAuthenticationGuidance(): Promise<string> {
+    const authCheck = await this.shouldTriggerAuth();
+    
+    if (!authCheck.needed) {
+      return '✅ Authentication is working correctly.';
+    }
+    
+    const guidance = [
+      '🔐 Google Authentication Required',
+      '',
+      `📋 Issue: ${authCheck.reason}`,
+      `🎯 Action: ${authCheck.action}`,
+      '',
+      '🚀 Steps to authenticate:',
+      '1. Run: node clear-tokens-enhanced.js',
+      '2. Restart Claude Desktop completely',
+      '3. Try your Google tool again',
+      '4. Complete the OAuth flow in the browser that opens',
+      '',
+      '🔧 If you continue having issues:',
+      '- Ensure the MCP server is properly configured in Claude Desktop',
+      '- Check that no other processes are using port 8080',
+      '- Verify your Google OAuth credentials are correct',
+      '- Check Claude Desktop logs for error messages'
+    ];
+    
+    return guidance.join('\n');
   }
 
   /**

@@ -30,10 +30,11 @@ describe('GoogleMCPServer', () => {
   test('should have correct status after initialization', () => {
     const status = server.getStatus();
     expect(status.running).toBe(true);
-    expect(status.toolCount).toBe(3); // calendar_list_events, calendar_create_event, and gmail_list_messages
+    expect(status.toolCount).toBe(4); // calendar_list_events, calendar_create_event, gmail_list_messages, gmail_get_message
     expect(status.tools).toContain('calendar_list_events');
     expect(status.tools).toContain('calendar_create_event');
     expect(status.tools).toContain('gmail_list_messages');
+    expect(status.tools).toContain('gmail_get_message');
   });
 
   test('should register calendar tools correctly', () => {

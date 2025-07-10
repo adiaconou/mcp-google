@@ -16,6 +16,7 @@ jest.mock('../../src/auth/oauthManager', () => ({
       getOAuth2Client: jest.fn(),
       isAuthenticated: jest.fn().mockResolvedValue(true),
       getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
+      ensureScopes: jest.fn().mockResolvedValue(undefined),
     },
   },
 }));
