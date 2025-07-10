@@ -173,7 +173,7 @@ export class OAuthManager {
         prompt: 'consent' // Force consent to ensure refresh token
       });
 
-      console.log('Generated OAuth authorization URL');
+      console.error('Generated OAuth authorization URL');
       return authUrl;
 
     } catch (error) {
@@ -196,21 +196,21 @@ export class OAuthManager {
       // Get authorization URL after server is ready
       const authUrl = await this.getAuthorizationUrl();
       
-      console.log('\n=== Google Calendar OAuth Authentication ===');
-      console.log('Please open the following URL in your browser to authenticate:');
-      console.log(authUrl);
-      console.log('\nWaiting for authentication callback...');
+      console.error('\n=== Google Calendar OAuth Authentication ===');
+      console.error('Please open the following URL in your browser to authenticate:');
+      console.error(authUrl);
+      console.error('\nWaiting for authentication callback...');
 
       // Open browser automatically if possible
       try {
         const { exec } = await import('child_process');
         exec(`start "" "${authUrl}"`, (error) => {
           if (error) {
-            console.log('Could not open browser automatically. Please open the URL manually.');
+            console.error('Could not open browser automatically. Please open the URL manually.');
           }
         });
       } catch {
-        console.log('Could not open browser automatically. Please open the URL manually.');
+        console.error('Could not open browser automatically. Please open the URL manually.');
       }
 
       // Wait for callback server to complete
@@ -298,7 +298,7 @@ export class OAuthManager {
         this.config.clientSecret,
         newRedirectUri
       );
-      console.log(`Using port ${port} for OAuth callback`);
+      console.error(`Using port ${port} for OAuth callback`);
     }
 
     return new Promise((resolve, reject) => {
@@ -365,7 +365,7 @@ export class OAuthManager {
       timeoutId.unref(); // Allow process to exit even if timeout is pending
 
       this.callbackServer.listen(port, () => {
-        console.log(`Callback server listening on port ${port}`);
+        console.error(`Callback server listening on port ${port}`);
       });
 
       this.callbackServer.on('close', () => {
@@ -430,7 +430,7 @@ export class OAuthManager {
     if (this.callbackServer) {
       this.callbackServer.close();
       this.callbackServer = null;
-      console.log('Callback server stopped');
+          console.error('Callback server stopped');
     }
   }
 
@@ -468,7 +468,7 @@ export class OAuthManager {
       // Set tokens in OAuth client
       this.oauth2Client.setCredentials(tokens);
 
-      console.log('OAuth authentication successful');
+      console.error('OAuth authentication successful');
       this.currentPKCE = null;
 
     } catch (error) {
@@ -492,7 +492,7 @@ export class OAuthManager {
       // Write tokens to file with restricted permissions
       await fs.writeFile(this.tokenPath, JSON.stringify(tokenData, null, 2), { mode: 0o600 });
       
-      console.log('Tokens stored successfully');
+      console.error('Tokens stored successfully');
 
     } catch (error) {
       throw new CalendarError(
@@ -517,13 +517,41 @@ export class OAuthManager {
   }
 
   /**
-   * Check if user is authenticated
-   * @returns True if authenticated, false otherwise
+   * Check if current tokens have all required scopes
+   * @param tokens - Token data to check
+   * @returns True if all required scopes are present
+   */
+  private hasRequiredScopes(tokens: TokenData): boolean {
+    if (!tokens.scope) {
+      return false;
+    }
+
+    const tokenScopes = tokens.scope.split(' ');
+    const requiredScopes = this.config.scopes;
+
+    // Check if all required scopes are present in token scopes
+    return requiredScopes.every(scope => tokenScopes.includes(scope));
+  }
+
+  /**
+   * Check if user is authenticated with all required scopes
+   * @returns True if authenticated with all scopes, false otherwise
    */
   async isAuthenticated(): Promise<boolean> {
     try {
       const tokens = await this.loadTokens();
       if (!tokens) {
+        return false;
+      }
+
+      // Check if tokens have all required scopes
+      if (!this.hasRequiredScopes(tokens)) {
+        console.error('Stored tokens missing required scopes. Re-authentication needed.');
+        console.error(`Required scopes: ${this.config.scopes.join(', ')}`);
+        console.error(`Token scopes: ${tokens.scope}`);
+        
+        // Clear invalid tokens to force re-authentication
+        await this.clearTokens();
         return false;
       }
 
@@ -632,7 +660,7 @@ export class OAuthManager {
 
       await this.storeTokens(updatedTokens);
       
-      console.log('Tokens refreshed successfully');
+      console.error('Tokens refreshed successfully');
       return true;
 
     } catch (error) {
@@ -665,10 +693,10 @@ export class OAuthManager {
     try {
       await fs.unlink(this.tokenPath);
       this.oauth2Client.setCredentials({});
-      console.log('Tokens cleared successfully');
+      console.error('Tokens cleared successfully');
     } catch {
       // File might not exist, which is fine
-      console.log('No tokens to clear');
+      console.error('No tokens to clear');
     }
   }
 
