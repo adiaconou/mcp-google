@@ -36,51 +36,46 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 - Establish patterns for additional Google API integrations
 
 ## Implementation Steps
-1. ☐ Extend OAuth manager to support Gmail scopes
-2. ☐ Create Gmail API client with authentication integration
-3. ☐ Implement message parsing and formatting utilities
-4. ☐ Create `gmail_list_messages` tool with filtering
-5. ☐ Implement `gmail_get_message` tool for reading emails
-6. ☐ Create `gmail_send_message` tool for sending emails
-7. ☐ Implement `gmail_search_messages` tool with query support
-8. ☐ Add `gmail_list_labels` and `gmail_manage_labels` tools
+1. ☐ Extend OAuth manager to support Gmail scopes (simple scope addition)
+2. ☐ Create Gmail API client following calendar client patterns
+3. ☐ Create `gmail_list_messages` tool with filtering
+4. ☐ Implement `gmail_get_message` tool for reading emails
+5. ☐ Create `gmail_send_message` tool for sending emails
+6. ☐ Implement `gmail_search_messages` tool with query support
+7. ☐ Add `gmail_download_attachment` tool for downloading attachments
+8. ☐ Add `gmail_export_email` tool for exporting complete emails
 9. ☐ Register Gmail tools with the MCP server
-10. ☐ Create comprehensive error handling for Gmail operations
+10. ☐ Extend existing error handling for Gmail operations
 11. ☐ Add integration tests for Gmail functionality
 12. ☐ Test Gmail tools with Claude Desktop
 
 ## Implementation Plan
 
-### Step 1: Extend OAuth Manager for Gmail
+### Step 1: Extend OAuth Manager for Gmail (Simple Scope Addition)
 **Files**: `src/auth/oauthManager.ts` (enhancement)
-- Add Gmail scopes to OAuth configuration:
+- Add Gmail scopes to existing scopes array in `loadConfig()`:
   - `https://www.googleapis.com/auth/gmail.readonly` (for reading)
   - `https://www.googleapis.com/auth/gmail.send` (for sending)
   - `https://www.googleapis.com/auth/gmail.labels` (for label management)
-- Update scope management to handle multiple services
-- Add scope validation for Gmail-specific operations
-- Implement incremental authorization for new scopes
+- No complex multi-service architecture needed - just extend existing pattern
 
-### Step 2: Create Gmail API Client
+### Step 2: Create Gmail API Client Following Calendar Patterns
 **Files**: `src/services/gmail/gmailClient.ts`
-- Create GmailClient class extending base API patterns
-- Add authentication integration with OAuth manager
+- Create GmailClient class following CalendarClient structure exactly
+- Add authentication integration with OAuth manager (same pattern)
 - Implement message listing with pagination and filtering
-- Add message retrieval with content parsing
+- Add message retrieval with content parsing (integrated in client)
 - Create message sending with attachment support
-- Add label management operations
-- Include comprehensive error handling
+- Add label listing operations
+- Include error handling using existing `handleApiError` pattern
 
-### Step 3: Implement Message Parsing Utilities
-**Files**: `src/services/gmail/messageParser.ts`
-- Create utilities for parsing Gmail message format
-- Add HTML to text conversion for message bodies
-- Implement attachment metadata extraction
-- Create thread conversation parsing
-- Add date/time formatting utilities
-- Handle various message encoding formats
+**Enhanced Gmail Client Methods for Download/Export**:
+- `downloadAttachment(messageId, attachmentId, outputPath)`: Use Gmail API's `attachments.get` endpoint with base64 decoding
+- `exportMessage(messageId, format, includeAttachments)`: Use Gmail API's `messages.get` with format='raw' for complete email export
+- `getAttachmentMetadata(messageId)`: Extract attachment info (IDs, filenames, sizes, MIME types)
+- File system security: path validation, filename sanitization, size limits, disk space checks
 
-### Step 4: Create Gmail List Messages Tool
+### Step 3: Create Gmail List Messages Tool
 **Files**: `src/services/gmail/tools/listMessages.ts`
 - Implement `gmail_list_messages` MCP tool
 - Add filtering by labels, date range, and sender
@@ -106,7 +101,7 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 5: Implement Gmail Get Message Tool
+### Step 4: Implement Gmail Get Message Tool
 **Files**: `src/services/gmail/tools/getMessage.ts`
 - Create `gmail_get_message` MCP tool
 - Add message ID validation and retrieval
@@ -136,7 +131,7 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 6: Create Gmail Send Message Tool
+### Step 5: Create Gmail Send Message Tool
 **Files**: `src/services/gmail/tools/sendMessage.ts`
 - Implement `gmail_send_message` MCP tool
 - Add comprehensive input validation for email fields
@@ -167,7 +162,7 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 7: Implement Gmail Search Messages Tool
+### Step 6: Implement Gmail Search Messages Tool
 **Files**: `src/services/gmail/tools/searchMessages.ts`
 - Create `gmail_search_messages` MCP tool
 - Support Gmail's advanced search syntax
@@ -200,35 +195,58 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 8: Add Gmail Label Management Tools
-**Files**: `src/services/gmail/tools/labelManagement.ts`
-- Create `gmail_list_labels` tool for label discovery
-- Implement `gmail_manage_labels` tool for label operations
-- Add label creation, modification, and deletion
-- Support message labeling and unlabeling
-- Include label color and visibility management
+### Step 7: Add Gmail Download Attachment Tool
+**Files**: `src/services/gmail/tools/downloadAttachment.ts`
+- Create `gmail_download_attachment` MCP tool
+- Add attachment ID validation and retrieval
+- Implement file download with proper MIME type handling
+- Add file size limits and validation (25MB Gmail limit)
+- Support saving to specified local directory
+- Include progress reporting for large files
+- Add filename sanitization for security
 
-**Label Tools Schema**:
+**Tool Schema**:
 ```typescript
 {
-  name: "gmail_manage_labels",
-  description: "Manage Gmail labels and apply them to messages",
+  name: "gmail_download_attachment",
+  description: "Download email attachment to local file system",
   inputSchema: {
     type: "object",
-    required: ["action"],
+    required: ["messageId", "attachmentId"],
     properties: {
-      action: { 
-        type: "string", 
-        enum: ["create", "update", "delete", "apply", "remove"] 
-      },
-      labelName: { type: "string" },
-      labelId: { type: "string" },
-      messageIds: { type: "array", items: { type: "string" } },
-      labelColor: { type: "string" },
-      labelVisibility: { 
-        type: "string", 
-        enum: ["labelShow", "labelHide", "labelShowIfUnread"] 
-      }
+      messageId: { type: "string" },
+      attachmentId: { type: "string" },
+      outputPath: { type: "string", description: "Local path to save file" },
+      filename: { type: "string", description: "Override filename" },
+      maxSizeBytes: { type: "number", default: 25000000 } // 25MB default
+    }
+  }
+}
+```
+
+### Step 8: Add Gmail Export Email Tool
+**Files**: `src/services/gmail/tools/exportEmail.ts`
+- Create `gmail_export_email` MCP tool
+- Export complete email as .eml or .mbox format
+- Include all headers, body content, and embedded attachments
+- Support batch export of multiple emails
+- Add compression options for large exports
+- Handle MIME multipart messages properly
+
+**Tool Schema**:
+```typescript
+{
+  name: "gmail_export_email",
+  description: "Export complete email with attachments to local file",
+  inputSchema: {
+    type: "object",
+    required: ["messageId"],
+    properties: {
+      messageId: { type: "string" },
+      outputPath: { type: "string" },
+      format: { type: "string", enum: ["eml", "mbox"], default: "eml" },
+      includeAttachments: { type: "boolean", default: true },
+      compress: { type: "boolean", default: false }
     }
   }
 }
@@ -236,19 +254,18 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 
 ### Step 9: Register Gmail Tools with MCP Server
 **Files**: `src/server.ts` (Gmail integration)
-- Import and register all Gmail tools
+- Import and register all Gmail tools (same pattern as calendar)
 - Add Gmail service initialization
 - Update tool discovery to include Gmail tools
-- Add Gmail-specific error handling
-- Include Gmail tools in server capabilities
+- Follow existing server registration pattern
 
-### Step 10: Create Gmail Error Handling
-**Files**: `src/utils/errors.ts` (Gmail errors)
-- Add GmailError class for Gmail-specific errors
-- Map Gmail API error codes to user-friendly messages
-- Handle quota exceeded and rate limiting errors
-- Add authentication and permission error handling
-- Create recovery suggestions for common issues
+### Step 10: Extend Existing Error Handling for Gmail
+**Files**: Extend existing error handling patterns
+- Add Gmail error codes to existing `handleApiError` method in Gmail client
+- Use same CalendarError class (rename to GoogleAPIError if needed)
+- Follow calendar client error handling patterns exactly
+- Add file system error handling for download/export operations
+- No separate Gmail error classes needed
 
 ### Step 11: Add Gmail Integration Tests
 **Files**: `tests/integration/gmail.test.ts`
@@ -257,7 +274,6 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 - Test message reading and content parsing
 - Verify message sending functionality
 - Test search functionality with various queries
-- Validate label management operations
 - Add error scenario testing
 
 ### Step 12: Test Gmail Tools with MCP Client
@@ -299,23 +315,20 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 ### Gmail Service Implementation
 ```
 src/services/gmail/
-├── gmailClient.ts            # Gmail API wrapper
-├── messageParser.ts          # Message content parsing
+├── gmailClient.ts            # Gmail API wrapper (with integrated message parsing)
 └── tools/
     ├── listMessages.ts       # List messages tool
     ├── getMessage.ts         # Get message content tool
     ├── sendMessage.ts        # Send message tool
     ├── searchMessages.ts     # Search messages tool
-    └── labelManagement.ts    # Label management tools
+    ├── downloadAttachment.ts # Download attachment tool
+    └── exportEmail.ts        # Export email tool
 ```
 
 ### Enhanced Core Files
 ```
 src/auth/
 └── oauthManager.ts           # Extended with Gmail scopes
-
-src/utils/
-└── errors.ts                 # Enhanced with Gmail errors
 
 tests/integration/
 └── gmail.test.ts             # Gmail integration tests
@@ -329,9 +342,10 @@ tests/integration/
 - **`gmail_send_message`**: Send emails with reply/forward support
 - **`gmail_search_messages`**: Advanced search using Gmail query syntax
 
-### Organization Tools
-- **`gmail_list_labels`**: List all available Gmail labels
-- **`gmail_manage_labels`**: Create, modify, and apply labels to messages
+### File Management Tools
+- **`gmail_download_attachment`**: Download email attachments to local file system
+- **`gmail_export_email`**: Export complete emails with attachments as .eml/.mbox files
+
 
 ## Performance Targets
 
@@ -361,6 +375,21 @@ tests/integration/
 - User control over email access and operations
 - Clear audit trail of email operations
 
+## Additional Dependencies
+
+### Required npm Packages for Download/Export Features
+Consider adding these packages for enhanced file handling:
+- `fs-extra`: Enhanced file system operations with better error handling
+- `mime-types`: Proper MIME type detection and handling for attachments
+- `sanitize-filename`: Safe filename sanitization to prevent security issues
+- `archiver`: For compression support in email export functionality
+
+### Installation Command
+```bash
+npm install fs-extra mime-types sanitize-filename archiver
+npm install --save-dev @types/fs-extra @types/mime-types @types/archiver
+```
+
 ## Testing Strategy
 
 ### Integration Testing Focus
@@ -369,6 +398,7 @@ tests/integration/
 - Search functionality with complex queries
 - Label management across different scenarios
 - Error handling and recovery scenarios
+- Download and export functionality with various file types
 
 ### Manual Testing Checklist
 - [ ] Gmail OAuth authorization completes successfully
