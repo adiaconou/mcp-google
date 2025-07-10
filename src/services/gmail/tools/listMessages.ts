@@ -20,7 +20,7 @@ function formatMessage(message: GmailMessage): string {
   const subject = message.subject || 'No subject';
   const snippet = message.snippet || 'No preview available';
   
-  let result = `Subject: ${subject}\nFrom: ${from}\nDate: ${date}`;
+  let result = `Message ID: ${message.id}\nSubject: ${subject}\nFrom: ${from}\nDate: ${date}`;
   
   if (snippet) {
     result += `\nPreview: ${snippet}`;
@@ -72,7 +72,7 @@ async function handleListMessages(params: unknown): Promise<MCPToolResult> {
         try {
           // Attempt to handle the scope error automatically
           await oauthManager.instance.handleInsufficientScopeError(error);
-        } catch (scopeError) {
+        } catch {
           // Return helpful error message for scope issues
           return {
             content: [{

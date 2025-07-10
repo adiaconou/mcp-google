@@ -124,6 +124,7 @@ describe('Gmail List Messages Tool', () => {
 
       const result = await gmailListMessagesTool.handler({});
 
+      expect(result.content[0].text).toContain('Message ID: 1');
       expect(result.content[0].text).toContain('Subject: Test Subject');
       expect(result.content[0].text).toContain('From: test@example.com');
       expect(result.content[0].text).toContain('Preview: Test snippet');
