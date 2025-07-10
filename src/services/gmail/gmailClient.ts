@@ -80,7 +80,6 @@ export class GmailClient {
 
       const oauth2Client = await oauthManager.instance.getOAuth2Client();
       this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-      console.error('Gmail API client initialized successfully');
     } catch (error) {
       // Handle scope-related errors specifically
       if (error instanceof CalendarError && error.message.includes('Missing required scopes')) {
@@ -143,8 +142,6 @@ export class GmailClient {
         requestParams.pageToken = params.pageToken;
       }
 
-      console.error(`Listing Gmail messages with query: ${params.query || 'none'}`);
-      
       // Make API request to list messages
       const response = await gmail.users.messages.list(requestParams);
       
@@ -165,8 +162,6 @@ export class GmailClient {
           }
         }
       }
-
-      console.error(`Retrieved ${messages.length} messages`);
       return messages;
 
     } catch (error) {
@@ -184,14 +179,11 @@ export class GmailClient {
     try {
       const gmail = await this.ensureInitialized();
       
-      console.error(`Getting Gmail message: ${messageId}`);
-      console.error(`Making API call with userId: 'me', id: '${messageId}', format: 'metadata'`);
-      
-      // Make API request to get message - using 'metadata' format for better compatibility
+      // Make API request to get message - using 'full' format to get complete message body
       const response = await gmail.users.messages.get({
         userId: 'me',
         id: messageId,
-        format: 'metadata'
+        format: 'full'
       });
 
       if (!response.data) {
@@ -199,7 +191,6 @@ export class GmailClient {
       }
 
       const message = this.convertToGmailMessage(response.data);
-      console.error(`Retrieved message: ${message.subject || 'No subject'}`);
       
       return message;
 
@@ -335,13 +326,26 @@ export class GmailClient {
     // If this part has body data, decode it
     if (payload.body?.data) {
       try {
-        // Validate base64 format before attempting to decode
         const base64Data = payload.body.data;
-        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
-          console.error('Invalid base64 format detected');
-          return '';
+        
+        // Gmail API uses base64url encoding, handle both standard and url-safe base64
+        let normalizedBase64 = base64Data
+          .replace(/-/g, '+')
+          .replace(/_/g, '/');
+        
+        // Add padding if needed
+        while (normalizedBase64.length % 4) {
+          normalizedBase64 += '=';
         }
-        return Buffer.from(base64Data, 'base64').toString('utf-8');
+        
+        const decoded = Buffer.from(normalizedBase64, 'base64').toString('utf-8');
+        
+        // Clean up HTML if this is an HTML part
+        if (payload.mimeType === 'text/html') {
+          return this.stripHtmlTags(decoded);
+        }
+        
+        return decoded;
       } catch (error) {
         console.error('Failed to decode message body:', error);
         return '';
@@ -350,24 +354,73 @@ export class GmailClient {
 
     // If this is a multipart message, recursively extract from parts
     if (payload.parts && payload.parts.length > 0) {
+      // First, try to find text/plain parts (preferred)
       for (const part of payload.parts) {
-        // Look for text/plain or text/html parts
-        if (part.mimeType === 'text/plain' || part.mimeType === 'text/html') {
+        if (part.mimeType === 'text/plain') {
           const bodyText = this.extractMessageBody(part);
-          if (bodyText) {
+          if (bodyText.trim()) {
             return bodyText;
           }
         }
       }
       
-      // If no text parts found, try the first part
-      const firstPartBody = this.extractMessageBody(payload.parts[0]);
-      if (firstPartBody) {
-        return firstPartBody;
+      // If no text/plain found, try text/html parts
+      for (const part of payload.parts) {
+        if (part.mimeType === 'text/html') {
+          const bodyText = this.extractMessageBody(part);
+          if (bodyText.trim()) {
+            return bodyText;
+          }
+        }
+      }
+      
+      // Try multipart/alternative or multipart/related parts
+      for (const part of payload.parts) {
+        if (part.mimeType?.startsWith('multipart/')) {
+          const bodyText = this.extractMessageBody(part);
+          if (bodyText.trim()) {
+            return bodyText;
+          }
+        }
+      }
+      
+      // As a last resort, try all parts recursively
+      for (const part of payload.parts) {
+        const bodyText = this.extractMessageBody(part);
+        if (bodyText.trim()) {
+          return bodyText;
+        }
       }
     }
 
     return '';
+  }
+
+  /**
+   * Strip HTML tags and decode HTML entities from text
+   * @param html - HTML content to clean
+   * @returns Plain text content
+   */
+  private stripHtmlTags(html: string): string {
+    // Remove HTML tags
+    let text = html.replace(/<[^>]*>/g, '');
+    
+    // Decode common HTML entities
+    text = text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&hellip;/g, '...');
+    
+    // Clean up whitespace
+    text = text
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return text;
   }
 
   /**

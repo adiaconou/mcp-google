@@ -132,7 +132,7 @@ describe('Gmail Service Integration', () => {
       expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
         userId: 'me',
         id: 'msg-1',
-        format: 'metadata'
+        format: 'full'
       });
 
       // Verify data transformation
@@ -450,8 +450,8 @@ describe('Gmail Service Integration', () => {
     });
   });
 
-  describe('getMessage integration with metadata format', () => {
-    test('should retrieve message successfully with metadata format', async () => {
+  describe('getMessage integration with full format', () => {
+    test('should retrieve message successfully with full format', async () => {
       // Test the exact scenario that was failing - using a message ID like the user encountered
       const testMessageId = '1906eadbc76bbcc7';
       const mockMessage = {
@@ -479,11 +479,11 @@ describe('Gmail Service Integration', () => {
       // Test Gmail client getMessage directly
       const message = await gmailClient.getMessage(testMessageId);
 
-      // Verify API call uses metadata format
+      // Verify API call uses full format
       expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
         userId: 'me',
         id: testMessageId,
-        format: 'metadata'
+        format: 'full'
       });
 
       // Verify message data transformation

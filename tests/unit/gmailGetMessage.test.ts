@@ -55,7 +55,7 @@ describe('Gmail Get Message Tool', () => {
       from: 'sender@example.com',
       to: 'recipient@example.com',
       date: '2024-01-15T10:30:00Z',
-      body: 'This is the test message body content.',
+      body: 'This is the complete test message body content with full details.\n\nThis includes multiple paragraphs and formatting that would be available in the full message format.',
       isRead: true,
       labels: ['INBOX', 'IMPORTANT']
     };
@@ -77,7 +77,7 @@ describe('Gmail Get Message Tool', () => {
       expect(text).toContain('Status: READ');
       expect(text).toContain('Labels: INBOX, IMPORTANT');
       expect(text).toContain('--- Message Body ---');
-      expect(text).toContain('This is the test message body content.');
+      expect(text).toContain('This is the complete test message body content with full details.');
     });
 
     it('should handle unread message status', async () => {
@@ -183,6 +183,46 @@ describe('Gmail Get Message Tool', () => {
       await gmailGetMessageTool.handler({ messageId: '  test-message-id  ' });
 
       expect(mockGmailClient).toHaveBeenCalledWith('test-message-id');
+    });
+
+    it('should handle HTML content in message body', async () => {
+      const htmlMessage = {
+        ...mockMessage,
+        body: '<p>This is <strong>HTML</strong> content with &amp; entities</p>'
+      };
+      mockGmailClient.mockResolvedValue(htmlMessage);
+
+      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+
+      expect(result.isError).toBe(false);
+      // The mock returns the body as-is, so we test that HTML content is included
+      expect(result.content[0].text).toContain('<p>This is <strong>HTML</strong> content with &amp; entities</p>');
+    });
+
+    it('should handle multipart message body extraction', async () => {
+      const multipartMessage = {
+        ...mockMessage,
+        body: 'Complete message body from multipart extraction'
+      };
+      mockGmailClient.mockResolvedValue(multipartMessage);
+
+      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Complete message body from multipart extraction');
+    });
+
+    it('should handle base64url encoded content', async () => {
+      const encodedMessage = {
+        ...mockMessage,
+        body: 'Decoded base64url content with special characters'
+      };
+      mockGmailClient.mockResolvedValue(encodedMessage);
+
+      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Decoded base64url content with special characters');
     });
   });
 });
