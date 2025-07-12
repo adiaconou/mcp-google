@@ -135,6 +135,14 @@ describe('OAuthManager', () => {
       expect(authUrl).toContain('gmail.labels');
     });
 
+    it('should include Drive scope in authorization URL', async () => {
+      const oauthManager = createOAuthManager();
+      const authUrl = await oauthManager.getAuthorizationUrl();
+      
+      // Check for Drive scope in the URL (URL encoded)
+      expect(authUrl).toContain('drive.file');
+    });
+
     it('should generate different state and challenge each time', async () => {
       const oauthManager = createOAuthManager();
       
