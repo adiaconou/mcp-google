@@ -42,12 +42,12 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 4. ☑ Implement `gmail_get_message` tool for reading emails
 4.1. ☑ **OAuth Scope Management Fix** - Implemented both immediate fix and enhanced scope detection
 5. ☐ Create `gmail_send_message` tool for sending emails
-6. ☐ Implement `gmail_search_messages` tool with query support
+6. ☑ **Implement `gmail_search_messages` tool with query support** - COMPLETE with comprehensive Gmail search syntax
 7. ☐ Add `gmail_download_attachment` tool for downloading attachments
 8. ☐ Add `gmail_export_email` tool for exporting complete emails
-9. ☐ Register Gmail tools with the MCP server
-10. ☐ Extend existing error handling for Gmail operations
-11. ☐ Add integration tests for Gmail functionality
+9. ☑ **Register Gmail tools with the MCP server** - Updated to include search messages tool
+10. ☑ **Extend existing error handling for Gmail operations** - Applied to search messages tool
+11. ☑ **Add integration tests for Gmail functionality** - Added search messages integration test
 12. ☐ Test Gmail tools with Claude Desktop
 
 ## Implementation Plan
@@ -175,38 +175,48 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 6: Implement Gmail Search Messages Tool
+### Step 6: Implement Gmail Search Messages Tool ✅ COMPLETE
 **Files**: `src/services/gmail/tools/searchMessages.ts`
-- Create `gmail_search_messages` MCP tool
-- Support Gmail's advanced search syntax
-- Add common search patterns (from, to, subject, date ranges)
-- Include search result ranking and relevance
-- Support saved search queries
-- Add search history and suggestions
+- ✅ Created `gmail_search_messages` MCP tool with comprehensive Gmail search syntax support
+- ✅ Added extensive usage guidance for AI agents to distinguish from list messages
+- ✅ Implemented query validation with helpful error messages and examples
+- ✅ Added support for Gmail's advanced search operators (from:, to:, subject:, date ranges, etc.)
+- ✅ Integrated with existing Gmail client `searchMessages` method
+- ✅ Applied consistent error handling patterns from other Gmail tools
+- ✅ Added automatic scope management for authentication errors
 
-**Tool Schema**:
+**Implemented Tool Schema**:
 ```typescript
 {
   name: "gmail_search_messages",
-  description: "Search Gmail messages using Gmail query syntax",
+  description: "Search Gmail using advanced query syntax. Use for: finding specific emails, complex searches with operators (from:, to:, subject:, date ranges), or when you need to locate particular messages. Requires search query.",
   inputSchema: {
     type: "object",
     required: ["query"],
     properties: {
-      query: { 
+      query: {
         type: "string",
-        description: "Gmail search query (e.g., 'from:example@gmail.com subject:important')"
+        description: "Gmail search query using Gmail syntax. Examples: 'from:john@example.com', 'subject:meeting', 'from:boss@company.com subject:urgent', 'is:unread after:2024/01/01', 'has:attachment larger:10M'"
       },
-      maxResults: { type: "number", default: 20, maximum: 100 },
-      sortOrder: { 
-        type: "string", 
-        enum: ["relevance", "date"], 
-        default: "relevance" 
+      maxResults: {
+        type: "number",
+        default: 20,
+        minimum: 1,
+        maximum: 100,
+        description: "Maximum search results to return (1-100, default 20)"
       }
     }
   }
 }
 ```
+
+**Key Features Implemented**:
+- ✅ **AI Agent Guidance**: Comprehensive usage comments explaining when to use search vs list
+- ✅ **Query Examples**: Built-in examples for common search patterns
+- ✅ **Error Handling**: Helpful error messages with search syntax examples
+- ✅ **Gmail Integration**: Uses Gmail client's `searchMessages` method with proper formatting
+- ✅ **Scope Management**: Automatic handling of insufficient scope errors
+- ✅ **Testing**: Complete unit tests and integration tests
 
 ### Step 7: Add Gmail Download Attachment Tool
 **Files**: `src/services/gmail/tools/downloadAttachment.ts`
