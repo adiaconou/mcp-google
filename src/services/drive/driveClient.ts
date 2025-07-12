@@ -66,7 +66,7 @@ export class DriveClient {
   private async initializeClient(): Promise<void> {
     try {
       await oauthManager.instance.ensureScopes([
-        'https://www.googleapis.com/auth/drive.file'
+        'https://www.googleapis.com/auth/drive.readonly'
       ]);
 
       const oauth2Client = await oauthManager.instance.getOAuth2Client();

@@ -31,6 +31,7 @@ import {
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool } from './services/gmail/tools/index';
+import { driveListFilesTool } from './services/drive/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -279,6 +280,9 @@ export class GoogleMCPServer {
     toolRegistry.register(gmailGetMessageTool);       // Get specific Gmail message
     toolRegistry.register(gmailSearchMessagesTool);   // Search Gmail messages
     toolRegistry.register(gmailDownloadAttachmentTool); // Download email attachments
+    
+    // Register Google Drive tools for file management
+    toolRegistry.register(driveListFilesTool);        // List Drive files
   }
 
   /**
