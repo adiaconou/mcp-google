@@ -17,7 +17,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
-import { gmailListMessagesTool, gmailGetMessageTool } from './services/gmail/tools/index';
+import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool } from './services/gmail/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -198,6 +198,7 @@ export class GoogleMCPServer {
       // Register Gmail tools
       toolRegistry.register(gmailListMessagesTool);
       toolRegistry.register(gmailGetMessageTool);
+      toolRegistry.register(gmailSearchMessagesTool);
       
       const stats = toolRegistry.getStats();
       console.error(`[MCP Server] Registered ${stats.totalTools} tools: ${stats.toolNames.join(', ')}`);

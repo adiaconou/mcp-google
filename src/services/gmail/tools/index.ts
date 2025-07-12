@@ -5,11 +5,11 @@
  * making it easy to import and register them in the MCP server.
  */
 
-export { gmailListMessagesTool } from './listMessages';
+export { gmailListMessagesTool } from './listMessages';     // For browsing
 export { gmailGetMessageTool } from './getMessage';
+export { gmailSearchMessagesTool } from './searchMessages'; // For searching
 
 // Future Gmail tools will be exported here:
 // export { gmailSendMessageTool } from './sendMessage';
-// export { gmailSearchMessagesTool } from './searchMessages';
 // export { gmailDownloadAttachmentTool } from './downloadAttachment';
 // export { gmailExportEmailTool } from './exportEmail';
