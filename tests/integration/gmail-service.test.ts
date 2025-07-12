@@ -50,6 +50,20 @@ jest.mock('googleapis', () => ({
   },
 }));
 
+// Mock fs module for attachment download tests
+jest.mock('fs', () => ({
+  promises: {
+    writeFile: jest.fn(),
+  },
+  existsSync: jest.fn().mockReturnValue(true),
+}));
+
+// Mock path module
+jest.mock('path', () => ({
+  resolve: jest.fn().mockImplementation(p => p),
+  join: jest.fn().mockImplementation((...args) => args.join('/')),
+}));
+
 describe('Gmail Service Integration', () => {
   let gmailClient: GmailClient;
 

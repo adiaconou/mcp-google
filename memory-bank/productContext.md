@@ -38,22 +38,16 @@ The Google MCP Server provides a **private, local bridge** that:
 ### Email Processing
 **Personal Assistant Workflows:**
 - "Summarize emails from my boss this week"
-- "Find all emails with PDF or Word document attachments from last month"
+- "Find all emails with attachments from last month"
 - "Draft a reply to the latest email from Sarah"
-- "Download all PDF attachments from contract emails to my local folder"
+- "Download all attachments from contract emails to my local folder"
 
 **Technical Implementation:**
 - Search Gmail with complex filters (sender, date, labels, content)
 - Extract email content, metadata, and attachments
-- **Attachment Support**: Download PDF and DOCX files only (for security and relevance)
+- **Attachment Support**: Download any non-inline email attachments.
 - Compose and send emails with proper formatting
 - Manage labels and organize email threads
-
-**Attachment Security Policy:**
-- Only PDF and Microsoft Word (.docx) files can be downloaded
-- Image, video, and other file types are filtered out for security
-- Prevents accidental download of potentially harmful file types
-- Focuses on document-based workflows most relevant to productivity
 
 ### Document & File Management
 **Personal Assistant Workflows:**

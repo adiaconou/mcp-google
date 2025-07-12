@@ -7,7 +7,7 @@
 
 import { gmailClient } from '../../src/services/gmail/gmailClient';
 import { oauthManager } from '../../src/auth/oauthManager';
-import { CalendarError, MCPErrorCode } from '../../src/types/mcp';
+import { GmailError, MCPErrorCode } from '../../src/types/mcp';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -90,10 +90,12 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'part-0',
                 filename: 'document.pdf',
                 mimeType: 'application/pdf',
+                headers: [{ name: 'Content-Disposition', value: 'attachment; filename="document.pdf"' }],
                 body: {
-                  attachmentId: 'att456',
+                  attachmentId: 'real-att-id-456',
                   size: 1024
                 }
               }
@@ -115,7 +117,7 @@ describe('Gmail Download Attachment Integration', () => {
       // Execute download
       const result = await gmailClient.instance.downloadAttachment({
         messageId: 'msg123',
-        attachmentId: 'att456',
+        attachmentId: 'part-0', // This is now the partId
         outputPath: process.cwd(),
         filename: 'test-document.pdf'
       });
@@ -130,7 +132,7 @@ describe('Gmail Download Attachment Integration', () => {
       expect(mockGmailApi.users.messages.attachments.get).toHaveBeenCalledWith({
         userId: 'me',
         messageId: 'msg123',
-        id: 'att456'
+        id: 'real-att-id-456'
       });
 
       expect(fs.promises.writeFile).toHaveBeenCalledWith(
@@ -149,27 +151,31 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'part-pdf',
                 filename: 'document.pdf',
                 mimeType: 'application/pdf',
-                body: {
-                  attachmentId: 'att456',
-                  size: 2048
-                }
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
+                body: { attachmentId: 'pdf-real-id', size: 2048 }
               },
               {
+                partId: 'part-jpg',
                 filename: 'image.jpg',
                 mimeType: 'image/jpeg',
-                body: {
-                  attachmentId: 'att789',
-                  size: 1024
-                }
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
+                body: { attachmentId: 'jpg-real-id', size: 1024 }
               },
               {
-                // Part without attachment
+                partId: 'part-inline',
+                filename: 'inline-image.png',
+                mimeType: 'image/png',
+                headers: [{ name: 'Content-Disposition', value: 'inline' }],
+                body: { attachmentId: 'inline-real-id', size: 512 }
+              },
+              {
+                // Part without attachment disposition
+                partId: 'part-text',
                 mimeType: 'text/plain',
-                body: {
-                  data: 'text content'
-                }
+                body: { data: 'text content' }
               }
             ]
           }
@@ -181,15 +187,15 @@ describe('Gmail Download Attachment Integration', () => {
       // Get attachment metadata
       const attachments = await gmailClient.instance.getAttachmentMetadata('msg123');
 
-      expect(attachments).toHaveLength(2);
+      expect(attachments).toHaveLength(2); // Should only find the 2 non-inline attachments
       expect(attachments[0]).toEqual({
-        attachmentId: 'att456',
+        partId: 'part-pdf',
         filename: 'document.pdf',
         mimeType: 'application/pdf',
         size: 2048
       });
       expect(attachments[1]).toEqual({
-        attachmentId: 'att789',
+        partId: 'part-jpg',
         filename: 'image.jpg',
         mimeType: 'image/jpeg',
         size: 1024
@@ -204,17 +210,21 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: '0',
                 mimeType: 'multipart/mixed',
                 parts: [
                   {
+                    partId: '0.0',
                     mimeType: 'text/plain',
                     body: { data: 'text content' }
                   },
                   {
+                    partId: '0.1',
                     filename: 'nested-attachment.doc',
                     mimeType: 'application/msword',
+                    headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                     body: {
-                      attachmentId: 'nested456',
+                      attachmentId: 'nested-real-id-456',
                       size: 4096
                     }
                   }
@@ -231,7 +241,7 @@ describe('Gmail Download Attachment Integration', () => {
 
       expect(attachments).toHaveLength(1);
       expect(attachments[0]).toEqual({
-        attachmentId: 'nested456',
+        partId: '0.1',
         filename: 'nested-attachment.doc',
         mimeType: 'application/msword',
         size: 4096
@@ -244,10 +254,13 @@ describe('Gmail Download Attachment Integration', () => {
         data: {
           id: 'msg123',
           payload: {
+            partId: '0',
             parts: [
               {
+                partId: '1',
                 filename: 'other-file.txt',
                 mimeType: 'text/plain',
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                 body: {
                   attachmentId: 'other123',
                   size: 512
@@ -264,9 +277,9 @@ describe('Gmail Download Attachment Integration', () => {
       await expect(
         gmailClient.instance.downloadAttachment({
           messageId: 'msg123',
-          attachmentId: 'nonexistent456'
+          attachmentId: 'nonexistent-part-id'
         })
-      ).rejects.toThrow('Attachment with ID nonexistent456 not found');
+      ).rejects.toThrow('Attachment with Part ID nonexistent-part-id not found');
     });
 
     it('should enforce size limits', async () => {
@@ -277,10 +290,12 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'large-part-id',
                 filename: 'large-file.zip',
                 mimeType: 'application/zip',
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                 body: {
-                  attachmentId: 'large456',
+                  attachmentId: 'large-real-id',
                   size: 50000000 // 50MB
                 }
               }
@@ -295,7 +310,7 @@ describe('Gmail Download Attachment Integration', () => {
       await expect(
         gmailClient.instance.downloadAttachment({
           messageId: 'msg123',
-          attachmentId: 'large456',
+          attachmentId: 'large-part-id',
           maxSizeBytes: 10000000 // 10MB limit
         })
       ).rejects.toThrow('Attachment size (50000000 bytes) exceeds maximum allowed size');
@@ -308,10 +323,12 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'part-456',
                 filename: 'test.txt',
                 mimeType: 'text/plain',
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                 body: {
-                  attachmentId: 'att456',
+                  attachmentId: 'real-att-id-456',
                   size: 100
                 }
               }
@@ -339,7 +356,7 @@ describe('Gmail Download Attachment Integration', () => {
 
       await gmailClient.instance.downloadAttachment({
         messageId: 'msg123',
-        attachmentId: 'att456'
+        attachmentId: 'part-456'
       });
 
       // Verify the decoded content was written correctly
@@ -371,10 +388,12 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'part-456',
                 filename: 'test.txt',
                 mimeType: 'text/plain',
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                 body: {
-                  attachmentId: 'att456',
+                  attachmentId: 'real-att-id-456',
                   size: 100
                 }
               }
@@ -393,7 +412,7 @@ describe('Gmail Download Attachment Integration', () => {
       await expect(
         gmailClient.instance.downloadAttachment({
           messageId: 'msg123',
-          attachmentId: 'att456'
+          attachmentId: 'part-456'
         })
       ).rejects.toThrow('No attachment data returned from Gmail API');
     });
@@ -405,10 +424,12 @@ describe('Gmail Download Attachment Integration', () => {
           payload: {
             parts: [
               {
+                partId: 'part-456',
                 filename: 'test.txt',
                 mimeType: 'text/plain',
+                headers: [{ name: 'Content-Disposition', value: 'attachment' }],
                 body: {
-                  attachmentId: 'att456',
+                  attachmentId: 'real-att-id-456',
                   size: 100
                 }
               }
@@ -432,7 +453,7 @@ describe('Gmail Download Attachment Integration', () => {
       await expect(
         gmailClient.instance.downloadAttachment({
           messageId: 'msg123',
-          attachmentId: 'att456'
+          attachmentId: 'part-456'
         })
       ).rejects.toThrow('Permission denied');
     });

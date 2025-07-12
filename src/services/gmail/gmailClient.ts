@@ -681,17 +681,12 @@ export class GmailClient {
     const isAttachment = contentDispositionHeader?.value?.toLowerCase().startsWith('attachment');
 
     if (isAttachment && payload.partId && payload.filename && payload.mimeType) {
-      const isPdf = payload.mimeType === 'application/pdf' || payload.filename.toLowerCase().endsWith('.pdf');
-      const isDocx = payload.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || payload.filename.toLowerCase().endsWith('.docx');
-
-      if (isPdf || isDocx) {
-        attachments.push({
-          partId: payload.partId,
-          filename: payload.filename,
-          mimeType: payload.mimeType,
-          size: payload.body?.size || 0,
-        });
-      }
+      attachments.push({
+        partId: payload.partId,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+        size: payload.body?.size || 0,
+      });
     }
 
     // Recursively check parts for nested attachments
@@ -713,12 +708,11 @@ export class GmailClient {
       return payload;
     }
 
-    // Recursively search in parts
     if (payload.parts) {
       for (const part of payload.parts) {
-        const found = this.findAttachmentPart(part, partId);
-        if (found) {
-          return found;
+        const foundPart = this.findAttachmentPart(part, partId);
+        if (foundPart) {
+          return foundPart;
         }
       }
     }

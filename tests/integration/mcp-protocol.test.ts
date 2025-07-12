@@ -79,27 +79,31 @@ describe('MCP Protocol Integration', () => {
       const status = server.getStatus();
       
       expect(status.running).toBe(true);
-      expect(status.toolCount).toBe(4);
+      expect(status.toolCount).toBe(6);
       expect(status.tools).toContain('calendar_list_events');
       expect(status.tools).toContain('calendar_create_event');
       expect(status.tools).toContain('gmail_list_messages');
       expect(status.tools).toContain('gmail_get_message');
+      expect(status.tools).toContain('gmail_search_messages');
+      expect(status.tools).toContain('gmail_download_attachment');
     });
 
     test('should have tools available in registry after initialization', () => {
       const stats = toolRegistry.getStats();
       
-      expect(stats.totalTools).toBe(4);
+      expect(stats.totalTools).toBe(6);
       expect(stats.toolNames).toContain('calendar_list_events');
       expect(stats.toolNames).toContain('calendar_create_event');
       expect(stats.toolNames).toContain('gmail_list_messages');
       expect(stats.toolNames).toContain('gmail_get_message');
+      expect(stats.toolNames).toContain('gmail_search_messages');
+      expect(stats.toolNames).toContain('gmail_download_attachment');
     });
 
     test('should have properly structured tool definitions', () => {
       const tools = toolRegistry.listTools();
       
-      expect(tools).toHaveLength(4);
+      expect(tools).toHaveLength(6);
       
       tools.forEach(tool => {
         expect(tool).toHaveProperty('name');
@@ -228,7 +232,7 @@ describe('MCP Protocol Integration', () => {
     test('should maintain tool registry state across server operations', () => {
       // Initial state
       const initialStats = toolRegistry.getStats();
-      expect(initialStats.totalTools).toBe(4);
+      expect(initialStats.totalTools).toBe(6);
 
       // Server status should reflect registry state
       const serverStatus = server.getStatus();
