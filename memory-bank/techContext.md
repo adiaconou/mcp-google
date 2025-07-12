@@ -383,6 +383,237 @@ npm run start
 }
 ```
 
+## MCP Server Startup Process
+
+### Claude Desktop ↔ MCP Server Communication Flow
+
+The following diagram illustrates the complete startup process between Claude Desktop and the Google MCP Server, including all internal setup calls and initialization sequences:
+
+```mermaid
+sequenceDiagram
+    participant CD as Claude Desktop
+    participant Process as Node.js Process
+    participant Server as GoogleMCPServer
+    participant Registry as ToolRegistry
+    participant OAuth as OAuthManager
+    participant Calendar as CalendarClient
+    participant Gmail as GmailClient
+    participant Google as Google APIs
+
+    Note over CD,Google: === MCP Server Startup Sequence ===
+    
+    CD->>Process: Launch MCP server via stdio
+    Note over Process: node dist/index.js
+    
+    Process->>Process: Load environment variables (.env)
+    Process->>Server: new GoogleMCPServer()
+    
+    Note over Server,Google: === Server Initialization ===
+    
+    Server->>Server: Initialize MCP Server instance
+    Note over Server: name: 'google-mcp-server'<br/>version: '1.0.0'<br/>capabilities: tools, resources, prompts
+    
+    Server->>Server: Initialize StdioServerTransport
+    Server->>Server: setupHandlers()
+    Note over Server: Register MCP protocol handlers:<br/>- tools/list<br/>- tools/call<br/>- resources/list<br/>- prompts/list
+    
+    Server->>Registry: Initialize ToolRegistry
+    Server->>Server: registerTools()
+    
+    Note over Server,Google: === Tool Registration Phase ===
+    
+    Server->>Registry: register(calendarListEventsTool)
+    Registry->>Registry: Store tool: 'calendar_list_events'
+    
+    Server->>Registry: register(calendarCreateEventTool)
+    Registry->>Registry: Store tool: 'calendar_create_event'
+    
+    Server->>Registry: register(gmailListMessagesTool)
+    Registry->>Registry: Store tool: 'gmail_list_messages'
+    
+    Server->>Registry: register(gmailGetMessageTool)
+    Registry->>Registry: Store tool: 'gmail_get_message'
+    
+    Server->>Registry: register(gmailSearchMessagesTool)
+    Registry->>Registry: Store tool: 'gmail_search_messages'
+    
+    Server->>Registry: register(gmailDownloadAttachmentTool)
+    Registry->>Registry: Store tool: 'gmail_download_attachment'
+    
+    Note over Server,Google: === OAuth Manager Initialization ===
+    
+    Server->>OAuth: Initialize OAuthManager singleton
+    OAuth->>OAuth: loadConfig() from environment
+    OAuth->>OAuth: new OAuth2Client(clientId, clientSecret, redirectUri)
+    OAuth->>OAuth: Set token storage path (.tokens/calendar-tokens.json)
+    
+    Note over Server,Google: === Server Startup ===
+    
+    Server->>Server: start()
+    Server->>Server: Connect to StdioServerTransport
+    Server->>Server: setupGracefulShutdown()
+    
+    Server->>CD: Ready signal via stdio
+    Note over Server: Server listening on stdio<br/>Ready to accept MCP requests
+    
+    Note over CD,Google: === First Tool Call (Authentication Flow) ===
+    
+    CD->>Server: MCP Request: tools/list
+    Server->>Registry: listTools()
+    Registry-->>Server: Available tools list
+    Server-->>CD: MCP Response: tools array
+    
+    CD->>Server: MCP Request: tools/call (calendar_list_events)
+    Server->>OAuth: isAuthenticated()
+    OAuth->>OAuth: loadTokens() from file system
+    
+    alt No valid tokens found
+        OAuth-->>Server: false (not authenticated)
+        Server->>OAuth: authenticate()
+        
+        Note over OAuth,Google: === OAuth 2.0 + PKCE Flow ===
+        
+        OAuth->>OAuth: generatePKCE() (code_verifier, code_challenge, state)
+        OAuth->>OAuth: findAvailablePort() (8080-8090 range)
+        OAuth->>OAuth: startCallbackServer() on available port
+        OAuth->>OAuth: generateAuthUrl() with PKCE parameters
+        OAuth->>OAuth: openBrowser() with auth URL
+        
+        Note over OAuth: User completes authentication in browser
+        
+        Google->>OAuth: OAuth callback with authorization code
+        OAuth->>OAuth: validateState() parameter
+        OAuth->>Google: exchangeCodeForTokens() with PKCE verifier
+        Google-->>OAuth: Access token + Refresh token
+        OAuth->>OAuth: storeTokens() with encryption
+        OAuth->>OAuth: stopCallbackServer()
+        OAuth-->>Server: Authentication complete
+        
+    else Valid tokens exist
+        OAuth->>OAuth: Check token expiry (5-minute buffer)
+        
+        alt Token needs refresh
+            OAuth->>Google: refreshAccessToken()
+            Google-->>OAuth: New access token
+            OAuth->>OAuth: storeTokens() updated tokens
+        end
+        
+        OAuth-->>Server: Access token
+    end
+    
+    Note over Server,Google: === API Client Initialization ===
+    
+    Server->>Calendar: Initialize CalendarClient (lazy)
+    Calendar->>OAuth: getOAuth2Client()
+    OAuth-->>Calendar: Configured OAuth2Client
+    Calendar->>Google: Create Calendar API client
+    
+    Server->>Calendar: Execute calendar_list_events
+    Calendar->>Google: calendar.events.list()
+    Google-->>Calendar: Events data
+    Calendar-->>Server: Formatted MCP response
+    Server-->>CD: MCP Response: calendar events
+    
+    Note over CD,Google: === Subsequent Tool Calls ===
+    
+    CD->>Server: MCP Request: tools/call (gmail_list_messages)
+    Server->>OAuth: ensureValidToken(['gmail.readonly'])
+    
+    alt Gmail scope not in current token
+        OAuth->>OAuth: validateTokenScopes()
+        OAuth-->>Server: Scope validation failed
+        Server->>OAuth: requestAdditionalScopes(['gmail.readonly'])
+        OAuth->>OAuth: forceReauthentication()
+        Note over OAuth: Triggers new OAuth flow with additional scopes
+    else Gmail scope available
+        OAuth-->>Server: Valid access token
+    end
+    
+    Server->>Gmail: Initialize GmailClient (lazy)
+    Gmail->>OAuth: getOAuth2Client()
+    OAuth-->>Gmail: Configured OAuth2Client
+    Gmail->>Google: Create Gmail API client
+    
+    Server->>Gmail: Execute gmail_list_messages
+    Gmail->>Google: gmail.users.messages.list()
+    Google-->>Gmail: Messages data
+    Gmail-->>Server: Formatted MCP response
+    Server-->>CD: MCP Response: gmail messages
+    
+    Note over CD,Google: === Error Handling Flow ===
+    
+    CD->>Server: MCP Request: tools/call (invalid_tool)
+    Server->>Registry: executeTool('invalid_tool')
+    Registry-->>Server: Tool not found error
+    Server-->>CD: MCP Error Response
+    
+    CD->>Server: MCP Request: tools/call (calendar_list_events)
+    Server->>Calendar: Execute tool
+    Calendar->>Google: API call with expired token
+    Google-->>Calendar: 401 Unauthorized
+    Calendar->>OAuth: handleInsufficientScopeError()
+    OAuth->>OAuth: refreshTokens()
+    
+    alt Refresh successful
+        OAuth-->>Calendar: New access token
+        Calendar->>Google: Retry API call
+        Google-->>Calendar: Success response
+        Calendar-->>Server: Formatted response
+        Server-->>CD: MCP Response: success
+    else Refresh failed
+        OAuth->>OAuth: clearTokens()
+        OAuth-->>Server: Authentication required
+        Server-->>CD: MCP Error: Authentication required
+    end
+```
+
+### Key Startup Components
+
+#### 1. **Process Initialization**
+- Node.js process starts with `node dist/index.js`
+- Environment variables loaded from `.env` file
+- Main entry point (`src/index.ts`) executed
+
+#### 2. **MCP Server Setup**
+- `GoogleMCPServer` instance created with capabilities
+- `StdioServerTransport` initialized for stdio communication
+- MCP protocol handlers registered for tools, resources, and prompts
+
+#### 3. **Tool Registration**
+- All available tools registered with `ToolRegistry`
+- Calendar tools: `calendar_list_events`, `calendar_create_event`
+- Gmail tools: `gmail_list_messages`, `gmail_get_message`, `gmail_search_messages`, `gmail_download_attachment`
+
+#### 4. **OAuth Manager Initialization**
+- Singleton `OAuthManager` instance created
+- Google OAuth2 client configured with credentials
+- Token storage path set (`.tokens/calendar-tokens.json`)
+
+#### 5. **Authentication Flow**
+- **First Tool Call**: Triggers authentication check
+- **OAuth 2.0 + PKCE**: Secure authentication with Google
+- **Token Management**: Automatic refresh and scope validation
+- **Scope Handling**: Dynamic scope requests for different services
+
+#### 6. **API Client Initialization**
+- **Lazy Loading**: Clients created only when needed
+- **Calendar Client**: Initialized on first calendar tool call
+- **Gmail Client**: Initialized on first Gmail tool call
+- **Token Injection**: OAuth tokens automatically provided to clients
+
+#### 7. **Error Handling**
+- **Authentication Errors**: Automatic token refresh or re-authentication
+- **Scope Errors**: Dynamic scope expansion and re-authentication
+- **API Errors**: Retry logic with exponential backoff
+- **MCP Errors**: Proper error formatting for MCP protocol
+
+### Startup Performance Characteristics
+
+- **Cold Start**: ~2-3 seconds (includes tool registration and OAuth setup)
+- **Warm Start**: ~500ms (with valid cached tokens)
+- **Authentication**: ~10-30 seconds (user interaction required)
+- **Tool Execution**: ~200-500ms (depending on Google API response time)
+
 ## Development Workflow
 
 ### Code Quality Checks
