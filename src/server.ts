@@ -31,7 +31,7 @@ import {
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool } from './services/gmail/tools/index';
-import { driveListFilesTool } from './services/drive/tools/index';
+import { driveListFilesTool, driveUploadFileTool } from './services/drive/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -283,6 +283,7 @@ export class GoogleMCPServer {
     
     // Register Google Drive tools for file management
     toolRegistry.register(driveListFilesTool);        // List Drive files
+    toolRegistry.register(driveUploadFileTool);       // Upload files to Drive
   }
 
   /**
