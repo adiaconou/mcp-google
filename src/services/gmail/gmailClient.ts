@@ -8,7 +8,7 @@
 import { google, gmail_v1 } from 'googleapis';
 import { oauthManager } from '../../auth/oauthManager';
 import { 
-  CalendarError, 
+  GmailError, 
   MCPErrorCode 
 } from '../../types/mcp';
 
@@ -53,6 +53,27 @@ export interface GmailSendMessageParams {
 }
 
 /**
+ * Gmail attachment metadata interface
+ */
+export interface GmailAttachment {
+  partId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+/**
+ * Parameters for downloading Gmail attachments
+ */
+export interface GmailDownloadParams {
+  messageId: string;
+  attachmentId: string;
+  outputPath?: string;
+  filename?: string;
+  maxSizeBytes?: number;
+}
+
+/**
  * Gmail API Client
  * 
  * Provides type-safe access to Google Gmail API with integrated OAuth
@@ -67,7 +88,7 @@ export class GmailClient {
 
   /**
    * Initialize Gmail API client with authentication and scope validation
-   * @throws {CalendarError} If authentication fails
+   * @throws {GmailError} If authentication fails
    */
   private async initializeClient(): Promise<void> {
     try {
@@ -82,13 +103,13 @@ export class GmailClient {
       this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     } catch (error) {
       // Handle scope-related errors specifically
-      if (error instanceof CalendarError && error.message.includes('Missing required scopes')) {
-        throw new CalendarError(
+      if (error instanceof GmailError && error.message.includes('Missing required scopes')) {
+        throw new GmailError(
           'Gmail access requires additional permissions. Please reauthenticate to grant Gmail access.',
           MCPErrorCode.AuthenticationError
         );
       }
-      throw new CalendarError(
+      throw new GmailError(
         'Failed to initialize Gmail API client: User is not authenticated',
         MCPErrorCode.AuthenticationError
       );
@@ -97,7 +118,7 @@ export class GmailClient {
 
   /**
    * Ensure the client is initialized
-   * @throws {CalendarError} If initialization fails
+   * @throws {GmailError} If initialization fails
    */
   private async ensureInitialized(): Promise<gmail_v1.Gmail> {
     if (!this.gmail) {
@@ -105,7 +126,7 @@ export class GmailClient {
     }
     
     if (!this.gmail) {
-      throw new CalendarError(
+      throw new GmailError(
         'Gmail API client failed to initialize',
         MCPErrorCode.InternalError
       );
@@ -118,7 +139,7 @@ export class GmailClient {
    * List Gmail messages with optional filtering
    * @param params - Parameters for listing messages
    * @returns Promise resolving to array of Gmail messages
-   * @throws {CalendarError} If the request fails
+   * @throws {GmailError} If the request fails
    */
   async listMessages(params: GmailListMessagesParams = {}): Promise<GmailMessage[]> {
     try {
@@ -174,7 +195,7 @@ export class GmailClient {
    * @param messageId - The ID of the message to retrieve
    * @param maxBodyLength - Maximum length of message body in characters (default: no limit)
    * @returns Promise resolving to the Gmail message
-   * @throws {CalendarError} If the request fails
+   * @throws {GmailError} If the request fails
    */
   async getMessage(messageId: string, maxBodyLength?: number): Promise<GmailMessage> {
     try {
@@ -204,7 +225,7 @@ export class GmailClient {
    * Send a Gmail message
    * @param params - Parameters for sending the message
    * @returns Promise resolving to the sent message
-   * @throws {CalendarError} If the request fails
+   * @throws {GmailError} If the request fails
    */
   async sendMessage(params: GmailSendMessageParams): Promise<GmailMessage> {
     try {
@@ -246,12 +267,12 @@ export class GmailClient {
    * @param query - Gmail search query
    * @param maxResults - Maximum number of results to return
    * @returns Promise resolving to array of matching Gmail messages
-   * @throws {CalendarError} If the request fails
+   * @throws {GmailError} If the request fails
    */
   async searchMessages(query: string, maxResults: number = 20): Promise<GmailMessage[]> {
     try {
       if (!query.trim()) {
-        throw new CalendarError('Search query is required', MCPErrorCode.ValidationError);
+        throw new GmailError('Search query is required', MCPErrorCode.ValidationError);
       }
 
       return await this.listMessages({
@@ -261,6 +282,135 @@ export class GmailClient {
 
     } catch (error) {
       throw this.handleApiError(error, 'search messages');
+    }
+  }
+
+  /**
+   * Get attachment metadata from a Gmail message
+   * @param messageId - The ID of the message to get attachments from
+   * @returns Promise resolving to array of attachment metadata
+   * @throws {GmailError} If the request fails
+   */
+  async getAttachmentMetadata(messageId: string): Promise<GmailAttachment[]> {
+    try {
+      const gmail = await this.ensureInitialized();
+      
+      // Get the message with full format to access attachments
+      const response = await gmail.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'full'
+      });
+
+      if (!response.data || !response.data.payload) {
+        return [];
+      }
+
+      const attachments: GmailAttachment[] = [];
+      this.extractAttachmentsFromPayload(response.data.payload, attachments);
+      
+      return attachments;
+
+    } catch (error) {
+      throw this.handleApiError(error, 'get attachment metadata');
+    }
+  }
+
+  /**
+   * Download a Gmail attachment to the local file system
+   * @param params - Parameters for downloading the attachment
+   * @returns Promise resolving to the file path where attachment was saved
+   * @throws {GmailError} If the request fails
+   */
+  async downloadAttachment(params: GmailDownloadParams): Promise<string> {
+    try {
+      const gmail = await this.ensureInitialized();
+      
+      // Validate input parameters
+      this.validateDownloadParams(params);
+
+      // Get the full message details to find the attachment
+      const messageResponse = await gmail.users.messages.get({
+        userId: 'me',
+        id: params.messageId,
+        format: 'full'
+      });
+
+      if (!messageResponse.data || !messageResponse.data.payload) {
+        throw new GmailError(
+          `Message with ID ${params.messageId} not found or has no payload`,
+          MCPErrorCode.ValidationError
+        );
+      }
+
+      // Find the specific attachment part in the message payload using the partId
+      const attachmentPart = this.findAttachmentPart(messageResponse.data.payload, params.attachmentId);
+
+      if (!attachmentPart) {
+        throw new GmailError(
+          `Attachment with Part ID ${params.attachmentId} not found in message ${params.messageId}`,
+          MCPErrorCode.ValidationError
+        );
+      }
+
+      // Check size limit
+      const attachmentSize = attachmentPart.body?.size || 0;
+      const maxSize = params.maxSizeBytes || 25000000; // 25MB default
+      if (attachmentSize > maxSize) {
+        throw new GmailError(
+          `Attachment size (${attachmentSize} bytes) exceeds maximum allowed size (${maxSize} bytes)`,
+          MCPErrorCode.ValidationError
+        );
+      }
+
+      // The actual attachmentId needed for the API call is in the body of the part
+      const realAttachmentId = attachmentPart.body?.attachmentId;
+
+      if (!realAttachmentId) {
+        throw new GmailError(
+          `Attachment part found, but it does not contain a downloadable attachmentId. It may be an inline attachment.`,
+          MCPErrorCode.ValidationError
+        );
+      }
+
+      // This is a regular attachment with a real ID. Use the attachments API.
+      const attachmentResponse = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId: params.messageId,
+        id: realAttachmentId
+      });
+
+      if (!attachmentResponse.data || !attachmentResponse.data.data) {
+        throw new Error('No attachment data returned from Gmail API');
+      }
+
+      // Decode the base64url encoded data
+      const base64Data = attachmentResponse.data.data;
+      const normalizedBase64 = base64Data
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      
+      // Add padding if needed
+      let paddedBase64 = normalizedBase64;
+      while (paddedBase64.length % 4) {
+        paddedBase64 += '=';
+      }
+
+      const attachmentBuffer = Buffer.from(paddedBase64, 'base64');
+
+      // Determine output path and filename
+      const outputPath = this.validateOutputPath(params.outputPath || process.cwd());
+      const filename = this.sanitizeFilename(params.filename || attachmentPart.filename || 'attachment');
+      const fullPath = require('path').join(outputPath, filename);
+
+      // Write file to disk
+      const fs = require('fs');
+      await fs.promises.writeFile(fullPath, attachmentBuffer);
+
+      return fullPath;
+
+    } catch (error) {
+      throw this.handleApiError(error, 'download attachment');
     }
   }
 
@@ -474,19 +624,19 @@ export class GmailClient {
   /**
    * Validate parameters for sending a message
    * @param params - Parameters to validate
-   * @throws {CalendarError} If validation fails
+   * @throws {GmailError} If validation fails
    */
   private validateSendMessageParams(params: GmailSendMessageParams): void {
     if (!params.to || params.to.length === 0) {
-      throw new CalendarError('At least one recipient is required', MCPErrorCode.ValidationError);
+      throw new GmailError('At least one recipient is required', MCPErrorCode.ValidationError);
     }
 
     if (!params.subject?.trim()) {
-      throw new CalendarError('Message subject is required', MCPErrorCode.ValidationError);
+      throw new GmailError('Message subject is required', MCPErrorCode.ValidationError);
     }
 
     if (!params.body?.trim()) {
-      throw new CalendarError('Message body is required', MCPErrorCode.ValidationError);
+      throw new GmailError('Message body is required', MCPErrorCode.ValidationError);
     }
 
     // Validate all email addresses
@@ -498,7 +648,7 @@ export class GmailClient {
 
     for (const email of allEmails) {
       if (!this.isValidEmail(email)) {
-        throw new CalendarError(
+        throw new GmailError(
           `Invalid email address: ${email}`,
           MCPErrorCode.ValidationError
         );
@@ -517,15 +667,169 @@ export class GmailClient {
   }
 
   /**
-   * Handle Gmail API errors and convert to CalendarError
+   * Extract attachments from Gmail message payload recursively
+   * @param payload - Gmail message payload
+   * @param attachments - Array to collect attachment metadata
+   */
+  private extractAttachmentsFromPayload(payload: gmail_v1.Schema$MessagePart, attachments: GmailAttachment[]): void {
+    if (!payload) {
+      return;
+    }
+
+    const headers = payload.headers || [];
+    const contentDispositionHeader = headers.find(h => h.name?.toLowerCase() === 'content-disposition');
+    const isAttachment = contentDispositionHeader?.value?.toLowerCase().startsWith('attachment');
+
+    if (isAttachment && payload.partId && payload.filename && payload.mimeType) {
+      const isPdf = payload.mimeType === 'application/pdf' || payload.filename.toLowerCase().endsWith('.pdf');
+      const isDocx = payload.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || payload.filename.toLowerCase().endsWith('.docx');
+
+      if (isPdf || isDocx) {
+        attachments.push({
+          partId: payload.partId,
+          filename: payload.filename,
+          mimeType: payload.mimeType,
+          size: payload.body?.size || 0,
+        });
+      }
+    }
+
+    // Recursively check parts for nested attachments
+    if (payload.parts && payload.parts.length > 0) {
+      for (const part of payload.parts) {
+        this.extractAttachmentsFromPayload(part, attachments);
+      }
+    }
+  }
+
+  /**
+   * Find a specific attachment part in the message payload
+   * @param payload - The message payload to search
+   * @param attachmentId - The ID of the attachment to find
+   * @returns The message part for the attachment, or null if not found
+   */
+  private findAttachmentPart(payload: gmail_v1.Schema$MessagePart, partId: string): gmail_v1.Schema$MessagePart | null {
+    if (payload.partId === partId) {
+      return payload;
+    }
+
+    // Recursively search in parts
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        const found = this.findAttachmentPart(part, partId);
+        if (found) {
+          return found;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Validate parameters for downloading attachments
+   * @param params - Parameters to validate
+   * @throws {GmailError} If validation fails
+   */
+  private validateDownloadParams(params: GmailDownloadParams): void {
+    if (!params.messageId?.trim()) {
+      throw new GmailError('Message ID is required', MCPErrorCode.ValidationError);
+    }
+
+    if (!params.attachmentId?.trim()) {
+      throw new GmailError('Attachment ID is required', MCPErrorCode.ValidationError);
+    }
+
+    if (params.maxSizeBytes && (params.maxSizeBytes < 1 || params.maxSizeBytes > 100000000)) {
+      throw new GmailError('Max size must be between 1 byte and 100MB', MCPErrorCode.ValidationError);
+    }
+
+    if (params.filename && params.filename.length > 255) {
+      throw new GmailError('Filename cannot exceed 255 characters', MCPErrorCode.ValidationError);
+    }
+  }
+
+  /**
+   * Validate and resolve output path
+   * @param outputPath - Path to validate
+   * @returns Resolved and validated path
+   * @throws {GmailError} If path is invalid
+   */
+  private validateOutputPath(outputPath: string): string {
+    const path = require('path');
+    
+    try {
+      const resolved = path.resolve(outputPath);
+      const cwd = process.cwd();
+      
+      // Ensure path is within current working directory for security
+      if (!resolved.startsWith(cwd)) {
+        throw new GmailError(
+          'Output path must be within current working directory for security',
+          MCPErrorCode.ValidationError
+        );
+      }
+      
+      // Check if directory exists, create if it doesn't
+      const fs = require('fs');
+      if (!fs.existsSync(resolved)) {
+        fs.mkdirSync(resolved, { recursive: true });
+      }
+      
+      return resolved;
+    } catch (error) {
+      if (error instanceof GmailError) {
+        throw error;
+      }
+      throw new GmailError(
+        `Invalid output path: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MCPErrorCode.ValidationError
+      );
+    }
+  }
+
+  /**
+   * Sanitize filename to prevent security issues
+   * @param filename - Original filename
+   * @returns Sanitized filename
+   */
+  private sanitizeFilename(filename: string): string {
+    if (!filename) {
+      return 'attachment';
+    }
+
+    // Remove dangerous characters and patterns
+    let sanitized = filename
+      .replace(/[<>:"/\\|?*]/g, '_')  // Replace dangerous chars
+      .replace(/\.\./g, '_')          // Prevent directory traversal
+      .replace(/^\.+/, '')            // Remove leading dots
+      .trim();
+
+    // Ensure filename is not empty after sanitization
+    if (!sanitized) {
+      sanitized = 'attachment';
+    }
+
+    // Limit length
+    if (sanitized.length > 255) {
+      const ext = sanitized.substring(sanitized.lastIndexOf('.'));
+      const name = sanitized.substring(0, 255 - ext.length);
+      sanitized = name + ext;
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Handle Gmail API errors and convert to GmailError
    * @param error - The error from the API call
    * @param operation - Description of the operation that failed
-   * @returns CalendarError with appropriate error code and message
+   * @returns GmailError with appropriate error code and message
    */
-  private handleApiError(error: unknown, operation: string): CalendarError {
+  private handleApiError(error: unknown, operation: string): GmailError {
     console.error(`Gmail API error during ${operation}:`, error);
 
-    if (error instanceof CalendarError) {
+    if (error instanceof GmailError) {
       return error;
     }
 
@@ -533,17 +837,17 @@ export class GmailClient {
 
     switch (err.code) {
       case 401:
-        return new CalendarError('Authentication failed. Please re-authenticate.', MCPErrorCode.AuthenticationError);
+        return new GmailError('Authentication failed. Please re-authenticate.', MCPErrorCode.AuthenticationError);
       case 403:
-        return new CalendarError('Insufficient permissions for Gmail access.', MCPErrorCode.AuthorizationError);
+        return new GmailError('Insufficient permissions for Gmail access.', MCPErrorCode.AuthorizationError);
       case 429:
-        return new CalendarError('Rate limit exceeded. Please try again later.', MCPErrorCode.RateLimitError);
+        return new GmailError('Rate limit exceeded. Please try again later.', MCPErrorCode.RateLimitError);
       case 404:
-        return new CalendarError(`Gmail resource not found during ${operation}.`, MCPErrorCode.APIError);
+        return new GmailError(`Gmail resource not found during ${operation}.`, MCPErrorCode.APIError);
       case 400:
-        return new CalendarError(`Invalid Gmail request for ${operation}: ${err.message}`, MCPErrorCode.ValidationError);
+        return new GmailError(`Invalid Gmail request for ${operation}: ${err.message}`, MCPErrorCode.ValidationError);
       default:
-        return new CalendarError(`Failed to ${operation}: ${err.message || 'Unknown error'}`, MCPErrorCode.APIError, { originalError: error });
+        return new GmailError(`Failed to ${operation}: ${err.message || 'Unknown error'}`, MCPErrorCode.APIError, { originalError: error });
     }
   }
 }

@@ -43,7 +43,7 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 4.1. ☑ **OAuth Scope Management Fix** - Implemented both immediate fix and enhanced scope detection
 5. ☐ Create `gmail_send_message` tool for sending emails
 6. ☑ **Implement `gmail_search_messages` tool with query support** - COMPLETE with comprehensive Gmail search syntax
-7. ☐ Add `gmail_download_attachment` tool for downloading attachments
+7. ☑ Add `gmail_download_attachment` tool for downloading attachments
 8. ☐ Add `gmail_export_email` tool for exporting complete emails
 9. ☑ **Register Gmail tools with the MCP server** - Updated to include search messages tool
 10. ☑ **Extend existing error handling for Gmail operations** - Applied to search messages tool
@@ -218,27 +218,33 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 - ✅ **Scope Management**: Automatic handling of insufficient scope errors
 - ✅ **Testing**: Complete unit tests and integration tests
 
-### Step 7: Add Gmail Download Attachment Tool
+### Step 7: Add Gmail Download Attachment Tool (PDF and DOCX Only)
 **Files**: `src/services/gmail/tools/downloadAttachment.ts`
 - Create `gmail_download_attachment` MCP tool
-- Add attachment ID validation and retrieval
+- **IMPORTANT**: Only supports PDF and DOCX file downloads for security and relevance
+- Add attachment ID validation and retrieval with file type filtering
 - Implement file download with proper MIME type handling
 - Add file size limits and validation (25MB Gmail limit)
 - Support saving to specified local directory
 - Include progress reporting for large files
 - Add filename sanitization for security
 
+**Supported File Types**:
+- PDF files (`application/pdf`, `.pdf` extension)
+- Microsoft Word documents (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `.docx` extension)
+- All other attachment types (images, videos, etc.) are filtered out and not available for download
+
 **Tool Schema**:
 ```typescript
 {
   name: "gmail_download_attachment",
-  description: "Download email attachment to local file system",
+  description: "Download PDF or DOCX email attachments to local file system. Only supports PDF and DOCX files - other attachment types are filtered out.",
   inputSchema: {
     type: "object",
     required: ["messageId", "attachmentId"],
     properties: {
       messageId: { type: "string" },
-      attachmentId: { type: "string" },
+      attachmentId: { type: "string", description: "Attachment ID for PDF or DOCX file only" },
       outputPath: { type: "string", description: "Local path to save file" },
       filename: { type: "string", description: "Override filename" },
       maxSizeBytes: { type: "number", default: 25000000 } // 25MB default

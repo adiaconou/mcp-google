@@ -25,6 +25,7 @@ import { GmailClient } from '../../src/services/gmail/gmailClient';
 import { gmailListMessagesTool } from '../../src/services/gmail/tools/listMessages';
 import { gmailGetMessageTool } from '../../src/services/gmail/tools/getMessage';
 import { gmailSearchMessagesTool } from '../../src/services/gmail/tools/searchMessages';
+import { gmailDownloadAttachmentTool } from '../../src/services/gmail/tools/downloadAttachment';
 import { oauthManager } from '../../src/auth/oauthManager';
 
 // Mock Gmail API
@@ -33,6 +34,9 @@ const mockGmailApi = {
     messages: {
       list: jest.fn(),
       get: jest.fn(),
+      attachments: {
+        get: jest.fn(),
+      },
     },
   },
 };
@@ -527,7 +531,7 @@ describe('Gmail Service Integration', () => {
       mockGmailApi.users.messages.get.mockResolvedValue(mockMessage);
 
       // Test getMessage tool
-      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      const result = await gmailGetMessageTool.handler({ messageIds: [testMessageId] });
 
       expect(result.isError).toBe(false);
       expect(result.content).toHaveLength(1);
@@ -556,7 +560,7 @@ describe('Gmail Service Integration', () => {
       await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Gmail resource not found during get message');
 
       // Test tool error handling
-      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      const result = await gmailGetMessageTool.handler({ messageIds: [testMessageId] });
       
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Gmail resource not found during get message');
@@ -591,7 +595,7 @@ describe('Gmail Service Integration', () => {
       });
 
       // Test tool formatting with minimal message
-      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      const result = await gmailGetMessageTool.handler({ messageIds: [testMessageId] });
       
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain(`Message ID: ${testMessageId}`);
@@ -608,7 +612,7 @@ describe('Gmail Service Integration', () => {
 
       await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Authentication failed');
 
-      const result = await gmailGetMessageTool.handler({ messageId: testMessageId });
+      const result = await gmailGetMessageTool.handler({ messageIds: [testMessageId] });
       
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Authentication failed');
@@ -625,21 +629,26 @@ describe('Gmail Service Integration', () => {
       await expect(gmailClient.getMessage(testMessageId)).rejects.toThrow('Rate limit exceeded');
     });
 
-    test('should validate messageId parameter in getMessage tool', async () => {
-      // Test missing messageId
+    test('should validate messageIds parameter in getMessage tool', async () => {
+      // Test missing messageIds
       let result = await gmailGetMessageTool.handler({});
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+      expect(result.content[0].text).toBe('Error: messageIds is required and must be an array');
 
-      // Test invalid messageId type
-      result = await gmailGetMessageTool.handler({ messageId: 123 });
+      // Test invalid messageIds type
+      result = await gmailGetMessageTool.handler({ messageIds: 'not-an-array' });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+      expect(result.content[0].text).toBe('Error: messageIds is required and must be an array');
 
-      // Test empty messageId
-      result = await gmailGetMessageTool.handler({ messageId: '   ' });
+      // Test empty messageIds array
+      result = await gmailGetMessageTool.handler({ messageIds: [] });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId cannot be empty');
+      expect(result.content[0].text).toBe('Error: messageIds array cannot be empty');
+
+      // Test invalid messageId in array
+      result = await gmailGetMessageTool.handler({ messageIds: ['valid-id', 123] });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: All message IDs must be non-empty strings');
     });
 
     test('should handle concurrent getMessage operations', async () => {
@@ -765,6 +774,48 @@ describe('Gmail Service Integration', () => {
         maxResults: 10,
         includeSpamTrash: false
       });
+    });
+  });
+
+  describe('download attachment integration', () => {
+    test('should download an attachment successfully via the tool', async () => {
+      const messageId = 'msg-with-attachment';
+      const attachmentId = 'attachment-id-123';
+      const filename = 'invoice.pdf';
+      const outputPath = '/tmp/downloads';
+
+      const mockMessagePayload = {
+        payload: {
+          parts: [
+            {
+              body: { attachmentId, size: 54321 },
+              filename,
+              mimeType: 'application/pdf',
+            },
+          ],
+        },
+      };
+
+      const mockAttachmentData = {
+        data: {
+          data: Buffer.from('This is a fake PDF content').toString('base64url'),
+        },
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue({ data: mockMessagePayload });
+      mockGmailApi.users.messages.attachments.get.mockResolvedValue(mockAttachmentData);
+      const writeFileMock = require('fs').promises.writeFile.mockResolvedValue(undefined);
+
+      const result = await gmailDownloadAttachmentTool.handler({
+        messageId,
+        attachmentId,
+        outputPath,
+        filename,
+      });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Attachment downloaded successfully');
+      expect(writeFileMock).toHaveBeenCalled();
     });
   });
 });

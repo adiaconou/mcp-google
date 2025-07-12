@@ -19,9 +19,10 @@ interface GmailGetMessageParams {
 /**
  * Format a Gmail message for detailed display
  * @param message - The Gmail message to format
+ * @param attachments - Optional attachment metadata for the message
  * @returns Formatted string representation of the message
  */
-function formatMessageDetails(message: GmailMessage): string {
+function formatMessageDetails(message: GmailMessage, attachments?: import('../gmailClient').GmailAttachment[]): string {
   const lines: string[] = [];
   
   // Header information
@@ -51,6 +52,17 @@ function formatMessageDetails(message: GmailMessage): string {
   
   if (message.labels && message.labels.length > 0) {
     lines.push(`Labels: ${message.labels.join(', ')}`);
+  }
+  
+  // Attachment information
+  if (attachments && attachments.length > 0) {
+    lines.push(''); // Empty line before attachments
+    lines.push('--- Attachments ---');
+    attachments.forEach(att => {
+      const sizeInMB = (att.size / (1024 * 1024)).toFixed(2);
+      lines.push(`📎 ${att.filename} (${sizeInMB} MB, ${att.mimeType})`);
+      lines.push(`   Part ID: ${att.partId}`);
+    });
   }
   
   // Message body
@@ -121,18 +133,21 @@ async function handleGetMessage(params: unknown): Promise<MCPToolResult> {
       }
     }
     
-    // Get all messages (fail-fast approach)
-    const messages: GmailMessage[] = [];
+    // Get all messages with attachment metadata (fail-fast approach)
+    const formattedMessages: string[] = [];
     for (const messageId of getParams.messageIds) {
       const message = await gmailClient.instance.getMessage(
         messageId.trim(), 
         getParams.maxBodyLength
       );
-      messages.push(message);
+      
+      // Get attachment metadata for this message
+      const attachments = await gmailClient.instance.getAttachmentMetadata(messageId.trim());
+      
+      // Format the message with attachment information
+      const formattedMessage = formatMessageDetails(message, attachments);
+      formattedMessages.push(formattedMessage);
     }
-    
-    // Format all messages
-    const formattedMessages = messages.map(formatMessageDetails);
     
     // Return formatted message details array
     return {

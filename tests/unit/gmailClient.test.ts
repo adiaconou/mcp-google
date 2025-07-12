@@ -22,8 +22,8 @@ jest.mock('../../src/auth/oauthManager', () => ({
 // Mock googleapis
 jest.mock('googleapis', () => ({
   google: {
-    gmail: jest.fn()
-  }
+    gmail: jest.fn(),
+  },
 }));
 
 describe('GmailClient', () => {
@@ -47,9 +47,12 @@ describe('GmailClient', () => {
         messages: {
           list: jest.fn(),
           get: jest.fn(),
-          send: jest.fn()
-        }
-      }
+          send: jest.fn(),
+          attachments: {
+            get: jest.fn(),
+          },
+        },
+      },
     };
 
     // Setup mocks
@@ -219,7 +222,7 @@ describe('GmailClient', () => {
       expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
         userId: 'me',
         id: 'msg1',
-        format: 'metadata'
+        format: 'full'
       });
     });
 
@@ -564,6 +567,120 @@ describe('GmailClient', () => {
       const result = await client.getMessage('msg1');
 
       expect(result.body).toBe('');
+    });
+  });
+
+  describe('downloadAttachment', () => {
+    it('should download an attachment successfully', async () => {
+      const fs = require('fs');
+      const path = require('path');
+      const writeFileSpy = jest.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined);
+      const existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      const resolveSpy = jest.spyOn(path, 'resolve').mockImplementation(p => p);
+      const joinSpy = jest.spyOn(path, 'join').mockImplementation((...args) => args.join('/'));
+
+
+      const messageId = 'test-message-id';
+      const attachmentId = 'test-attachment-id';
+      const filename = 'test-file.pdf';
+      const outputPath = '/fake/dir';
+      const fullPath = `${outputPath}/${filename}`;
+
+      const mockMessagePayload = {
+        payload: {
+          parts: [
+            {
+              body: { attachmentId, size: 12345 },
+              filename,
+            },
+          ],
+        },
+      };
+
+      const mockAttachmentData = {
+        data: {
+          data: Buffer.from('test file content').toString('base64url'),
+        },
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue({ data: mockMessagePayload });
+      mockGmailApi.users.messages.attachments.get.mockResolvedValue(mockAttachmentData);
+
+      const result = await client.downloadAttachment({
+        messageId,
+        attachmentId,
+        outputPath,
+        filename,
+      });
+
+      expect(result).toBe(fullPath);
+      expect(mockGmailApi.users.messages.get).toHaveBeenCalledWith({
+        userId: 'me',
+        id: messageId,
+        format: 'full',
+      });
+      expect(mockGmailApi.users.messages.attachments.get).toHaveBeenCalledWith({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+      });
+      expect(writeFileSpy).toHaveBeenCalledWith(
+        fullPath,
+        Buffer.from('test file content')
+      );
+
+      writeFileSpy.mockRestore();
+      existsSyncSpy.mockRestore();
+      resolveSpy.mockRestore();
+      joinSpy.mockRestore();
+    });
+
+    it('should throw an error if attachment is not found', async () => {
+      const messageId = 'test-message-id';
+      const attachmentId = 'non-existent-id';
+
+      const mockMessagePayload = {
+        payload: { parts: [] },
+      };
+
+      mockGmailApi.users.messages.get.mockResolvedValue({ data: mockMessagePayload });
+
+      await expect(
+        client.downloadAttachment({ messageId, attachmentId })
+      ).rejects.toThrow(
+        new CalendarError(
+          `Attachment with ID ${attachmentId} not found in message ${messageId}`,
+          MCPErrorCode.ValidationError
+        )
+      );
+    });
+
+    it('should throw an error if attachment size exceeds max size', async () => {
+        const messageId = 'test-message-id';
+        const attachmentId = 'large-attachment-id';
+        const filename = 'large-file.zip';
+
+        const mockMessagePayload = {
+            payload: {
+                parts: [
+                    {
+                        body: { attachmentId, size: 50000 },
+                        filename,
+                    },
+                ],
+            },
+        };
+
+        mockGmailApi.users.messages.get.mockResolvedValue({ data: mockMessagePayload });
+
+        await expect(
+            client.downloadAttachment({ messageId, attachmentId, maxSizeBytes: 40000 })
+        ).rejects.toThrow(
+            new CalendarError(
+                `Attachment size (50000 bytes) exceeds maximum allowed size (40000 bytes)`,
+                MCPErrorCode.ValidationError
+            )
+        );
     });
   });
 });

@@ -218,6 +218,25 @@ export class CalendarError extends Error {
   }
 }
 
+export class GmailError extends Error {
+  constructor(
+    message: string,
+    public code: MCPErrorCode = MCPErrorCode.APIError,
+    public data?: unknown
+  ) {
+    super(message);
+    this.name = 'GmailError';
+  }
+
+  toMCPError(): MCPError {
+    return {
+      code: this.code,
+      message: this.message,
+      data: this.data
+    };
+  }
+}
+
 // Utility Types
 export interface ToolExecutionContext {
   toolName: string;

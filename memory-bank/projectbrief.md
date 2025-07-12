@@ -34,11 +34,16 @@ Create a stdio-based MCP server for **personal use** that provides AI agents wit
 5. **Configuration System**: Environment-based configuration with validation
 
 ### Supported Google Services
-- **Gmail**: Email search, reading, sending, label management
+- **Gmail**: Email search, reading, sending, label management, PDF/DOCX attachment downloads
 - **Google Drive**: File operations, folder management, sharing
 - **Google Calendar**: Event management, scheduling, availability
 - **Google Docs**: Document creation, editing, collaboration
 - **Google Sheets**: Spreadsheet operations, data manipulation
+
+### Gmail Attachment Security Policy
+- **Supported File Types**: Only PDF and Microsoft Word (.docx) files can be downloaded
+- **Security Rationale**: Image, video, and other file types are filtered out to prevent security risks
+- **Productivity Focus**: Concentrates on document-based workflows most relevant to personal productivity
 
 ### Architecture Principles
 - **Modular Design**: Each Google service as independent module

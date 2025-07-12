@@ -32,7 +32,6 @@ export class ToolRegistry {
 
     // Register the tool
     this.tools.set(tool.name, tool);
-    console.error(`Registered tool: ${tool.name}`);
   }
 
   /**
@@ -77,8 +76,6 @@ export class ToolRegistry {
    * @throws {CalendarError} If tool not found or execution fails
    */
   async executeTool(name: string, params: unknown): Promise<MCPToolResult> {
-    const startTime = Date.now();
-
     try {
       // Get the tool
       const tool = this.getTool(name);
@@ -93,17 +90,11 @@ export class ToolRegistry {
       this.validateParams(tool, params);
 
       // Execute the tool handler
-      console.error(`Executing tool: ${name}`);
       const result = await tool.handler(params);
-
-      const duration = Date.now() - startTime;
-      console.error(`Tool '${name}' executed successfully in ${duration}ms`);
 
       return result;
 
     } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error(`Tool '${name}' execution failed after ${duration}ms:`, error);
 
       // Convert error to MCP format
       if (error instanceof CalendarError) {
@@ -143,7 +134,6 @@ export class ToolRegistry {
    */
   clear(): void {
     this.tools.clear();
-    console.error('Tool registry cleared');
   }
 
   /**

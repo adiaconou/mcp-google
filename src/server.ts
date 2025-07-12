@@ -17,7 +17,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
-import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool } from './services/gmail/tools/index';
+import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool } from './services/gmail/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -190,22 +190,15 @@ export class GoogleMCPServer {
    * Register all available tools with the tool registry
    */
   private registerTools(): void {
-    try {
-      // Register calendar tools
-      toolRegistry.register(calendarListEventsTool);
-      toolRegistry.register(calendarCreateEventTool);
-      
-      // Register Gmail tools
-      toolRegistry.register(gmailListMessagesTool);
-      toolRegistry.register(gmailGetMessageTool);
-      toolRegistry.register(gmailSearchMessagesTool);
-      
-      const stats = toolRegistry.getStats();
-      console.error(`[MCP Server] Registered ${stats.totalTools} tools: ${stats.toolNames.join(', ')}`);
-    } catch (error) {
-      console.error('[MCP Server] Error registering tools:', error);
-      throw error;
-    }
+    // Register calendar tools
+    toolRegistry.register(calendarListEventsTool);
+    toolRegistry.register(calendarCreateEventTool);
+    
+    // Register Gmail tools
+    toolRegistry.register(gmailListMessagesTool);
+    toolRegistry.register(gmailGetMessageTool);
+    toolRegistry.register(gmailSearchMessagesTool);
+    toolRegistry.register(gmailDownloadAttachmentTool);
   }
 
   /**

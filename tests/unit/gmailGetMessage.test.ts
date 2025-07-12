@@ -10,12 +10,14 @@ import { CalendarError, MCPErrorCode } from '../../src/types/mcp';
 jest.mock('../../src/services/gmail/gmailClient', () => ({
   gmailClient: {
     instance: {
-      getMessage: jest.fn()
+      getMessage: jest.fn(),
+      getAttachmentMetadata: jest.fn()
     }
   }
 }));
 
 const mockGmailClient = gmailClient.instance.getMessage as jest.MockedFunction<typeof gmailClient.instance.getMessage>;
+const mockGetAttachmentMetadata = gmailClient.instance.getAttachmentMetadata as jest.MockedFunction<typeof gmailClient.instance.getAttachmentMetadata>;
 
 describe('Gmail Get Message Tool', () => {
   beforeEach(() => {
@@ -70,6 +72,7 @@ describe('Gmail Get Message Tool', () => {
 
     it('should successfully get message details', async () => {
       mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -86,11 +89,14 @@ describe('Gmail Get Message Tool', () => {
       expect(text).toContain('Labels: INBOX, IMPORTANT');
       expect(text).toContain('--- Message Body ---');
       expect(text).toContain('This is the complete test message body content with full details.');
+      
+      expect(mockGetAttachmentMetadata).toHaveBeenCalledWith('test-message-id');
     });
 
     it('should handle unread message status', async () => {
       const unreadMessage = { ...mockMessage, isRead: false };
       mockGmailClient.mockResolvedValue(unreadMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -101,6 +107,7 @@ describe('Gmail Get Message Tool', () => {
     it('should handle message with no body (use snippet)', async () => {
       const { body, ...messageWithoutBody } = mockMessage;
       mockGmailClient.mockResolvedValue(messageWithoutBody);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -111,6 +118,7 @@ describe('Gmail Get Message Tool', () => {
     it('should handle message with no body or snippet', async () => {
       const { body, ...messageWithoutContent } = { ...mockMessage, snippet: '' };
       mockGmailClient.mockResolvedValue(messageWithoutContent);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -127,6 +135,7 @@ describe('Gmail Get Message Tool', () => {
         labels: []
       };
       mockGmailClient.mockResolvedValue(minimalMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -186,6 +195,9 @@ describe('Gmail Get Message Tool', () => {
       mockGmailClient
         .mockResolvedValueOnce(message1)
         .mockResolvedValueOnce(message2);
+      mockGetAttachmentMetadata
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['msg-1', 'msg-2'] });
 
@@ -225,6 +237,7 @@ describe('Gmail Get Message Tool', () => {
 
     it('should trim whitespace from messageIds', async () => {
       mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       await gmailGetMessageTool.handler({ messageIds: ['  test-message-id  '] });
 
@@ -233,6 +246,7 @@ describe('Gmail Get Message Tool', () => {
 
     it('should pass maxBodyLength to client', async () => {
       mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       await gmailGetMessageTool.handler({ messageIds: ['test-id'], maxBodyLength: 25000 });
 
@@ -245,6 +259,7 @@ describe('Gmail Get Message Tool', () => {
         body: '<p>This is <strong>HTML</strong> content with &amp; entities</p>'
       };
       mockGmailClient.mockResolvedValue(htmlMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -259,6 +274,7 @@ describe('Gmail Get Message Tool', () => {
         body: 'Complete message body from multipart extraction'
       };
       mockGmailClient.mockResolvedValue(multipartMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
@@ -272,11 +288,89 @@ describe('Gmail Get Message Tool', () => {
         body: 'Decoded base64url content with special characters'
       };
       mockGmailClient.mockResolvedValue(encodedMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
 
       const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Decoded base64url content with special characters');
+    });
+
+    it('should display attachment information when message has attachments', async () => {
+      const mockAttachments = [
+        {
+          partId: 'part-1',
+          filename: 'project-plan.pdf',
+          mimeType: 'application/pdf',
+          size: 2621440 // 2.5 MB
+        },
+        {
+          partId: 'part-2',
+          filename: 'budget.xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          size: 1258291 // 1.2 MB
+        }
+      ];
+
+      mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockResolvedValue(mockAttachments);
+
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
+
+      expect(result.isError).toBe(false);
+      const text = result.content[0].text;
+      
+      // Check attachment section is present
+      expect(text).toContain('--- Attachments ---');
+      
+      // Check first attachment
+      expect(text).toContain('📎 project-plan.pdf (2.50 MB, application/pdf)');
+      expect(text).toContain('Part ID: part-1');
+      
+      // Check second attachment
+      expect(text).toContain('📎 budget.xlsx (1.20 MB, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)');
+      expect(text).toContain('Part ID: part-2');
+      
+      expect(mockGetAttachmentMetadata).toHaveBeenCalledWith('test-message-id');
+    });
+
+    it('should not display attachment section when message has no attachments', async () => {
+      mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockResolvedValue([]);
+
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).not.toContain('--- Attachments ---');
+      expect(mockGetAttachmentMetadata).toHaveBeenCalledWith('test-message-id');
+    });
+
+    it('should handle attachment metadata errors gracefully', async () => {
+      mockGmailClient.mockResolvedValue(mockMessage);
+      mockGetAttachmentMetadata.mockRejectedValue(new Error('Failed to get attachments'));
+
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: Failed to get attachments');
+    });
+
+    it('should call getAttachmentMetadata for each message in batch', async () => {
+      const message1 = { ...mockMessage, id: 'msg-1' };
+      const message2 = { ...mockMessage, id: 'msg-2' };
+      
+      mockGmailClient
+        .mockResolvedValueOnce(message1)
+        .mockResolvedValueOnce(message2);
+      mockGetAttachmentMetadata
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await gmailGetMessageTool.handler({ messageIds: ['msg-1', 'msg-2'] });
+
+      expect(mockGetAttachmentMetadata).toHaveBeenCalledTimes(2);
+      expect(mockGetAttachmentMetadata).toHaveBeenNthCalledWith(1, 'msg-1');
+      expect(mockGetAttachmentMetadata).toHaveBeenNthCalledWith(2, 'msg-2');
     });
   });
 });
