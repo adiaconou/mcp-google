@@ -9,10 +9,11 @@ import { ToolDefinition, MCPToolResult } from '../../../types/mcp';
 import { gmailClient, GmailMessage } from '../gmailClient';
 
 /**
- * Parameters for getting a Gmail message
+ * Parameters for getting Gmail messages (batch)
  */
 interface GmailGetMessageParams {
-  messageId: string;
+  messageIds: string[];
+  maxBodyLength?: number;
 }
 
 /**
@@ -68,43 +69,76 @@ function formatMessageDetails(message: GmailMessage): string {
 }
 
 /**
- * Gmail Get Message Tool Handler
- * @param params - Parameters for getting the message
- * @returns Promise resolving to formatted message details
+ * Gmail Get Message Tool Handler (Batch)
+ * @param params - Parameters for getting the messages
+ * @returns Promise resolving to formatted message details array
  */
 async function handleGetMessage(params: unknown): Promise<MCPToolResult> {
   try {
     const getParams = params as GmailGetMessageParams;
     
     // Validate required parameters
-    if (!getParams.messageId || typeof getParams.messageId !== 'string') {
+    if (!getParams.messageIds || !Array.isArray(getParams.messageIds)) {
       return {
         content: [{
           type: 'text',
-          text: 'Error: messageId is required and must be a string'
+          text: 'Error: messageIds is required and must be an array'
         }],
         isError: true
       };
     }
     
-    if (!getParams.messageId.trim()) {
+    if (getParams.messageIds.length === 0) {
       return {
         content: [{
           type: 'text',
-          text: 'Error: messageId cannot be empty'
+          text: 'Error: messageIds array cannot be empty'
         }],
         isError: true
       };
     }
     
-    // Call the Gmail client (authentication handled at client level)
-    const message = await gmailClient.instance.getMessage(getParams.messageId.trim());
+    if (getParams.messageIds.length > 50) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'Error: Maximum 50 message IDs allowed per batch'
+        }],
+        isError: true
+      };
+    }
     
-    // Return formatted message details
+    // Validate all message IDs are strings
+    for (const messageId of getParams.messageIds) {
+      if (typeof messageId !== 'string' || !messageId.trim()) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'Error: All message IDs must be non-empty strings'
+          }],
+          isError: true
+        };
+      }
+    }
+    
+    // Get all messages (fail-fast approach)
+    const messages: GmailMessage[] = [];
+    for (const messageId of getParams.messageIds) {
+      const message = await gmailClient.instance.getMessage(
+        messageId.trim(), 
+        getParams.maxBodyLength
+      );
+      messages.push(message);
+    }
+    
+    // Format all messages
+    const formattedMessages = messages.map(formatMessageDetails);
+    
+    // Return formatted message details array
     return {
       content: [{
         type: 'text',
-        text: formatMessageDetails(message)
+        text: formattedMessages.join('\n\n=== MESSAGE SEPARATOR ===\n\n')
       }],
       isError: false
     };
@@ -126,14 +160,22 @@ async function handleGetMessage(params: unknown): Promise<MCPToolResult> {
  */
 export const gmailGetMessageTool: ToolDefinition = {
   name: 'gmail_get_message',
-  description: 'Get detailed Gmail message content by message ID',
+  description: 'Get Gmail message content for one or more message IDs (batch support)',
   inputSchema: {
     type: 'object',
-    required: ['messageId'],
+    required: ['messageIds'],
     properties: {
-      messageId: {
-        type: 'string',
-        description: 'Gmail message ID to retrieve'
+      messageIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Array of Gmail message IDs to retrieve (1-50)'
+      },
+      maxBodyLength: {
+        type: 'number',
+        default: 50000,
+        minimum: 1000,
+        maximum: 500000,
+        description: 'Maximum characters per message body (default 50k, max 500k)'
       }
     }
   },

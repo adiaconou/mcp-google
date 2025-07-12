@@ -102,35 +102,47 @@ Before starting Phase 3 implementation, the user must complete these setup tasks
 }
 ```
 
-### Step 4: Implement Gmail Get Message Tool
+### Step 4: Implement Gmail Get Message Tool (Batch API) ✅ COMPLETE
 **Files**: `src/services/gmail/tools/getMessage.ts`
-- Create `gmail_get_message` MCP tool
-- Add message ID validation and retrieval
-- Parse and format message content (text and HTML)
-- Extract attachment information
-- Include thread context when relevant
-- Add privacy controls for sensitive content
+- ✅ Updated `gmail_get_message` MCP tool for batch processing
+- ✅ Added message ID array validation and retrieval (1-50 messages)
+- ✅ Implemented body length limiting with configurable truncation
+- ✅ Added fail-fast error handling (any failure stops entire batch)
+- ✅ Parse and format message content with memory protection
+- ✅ Return array format for consistent batch processing
 
-**Tool Schema**:
+**Updated Tool Schema**:
 ```typescript
 {
   name: "gmail_get_message",
-  description: "Get detailed Gmail message content",
+  description: "Get Gmail message content for one or more message IDs (batch support)",
   inputSchema: {
     type: "object",
-    required: ["messageId"],
+    required: ["messageIds"],
     properties: {
-      messageId: { type: "string" },
-      format: { 
-        type: "string", 
-        enum: ["minimal", "full", "raw", "metadata"],
-        default: "full"
+      messageIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of Gmail message IDs to retrieve (1-50)"
       },
-      includeAttachments: { type: "boolean", default: false }
+      maxBodyLength: {
+        type: "number",
+        default: 50000,
+        minimum: 1000,
+        maximum: 500000,
+        description: "Maximum characters per message body (default 50k, max 500k)"
+      }
     }
   }
 }
 ```
+
+**Memory Protection Features**:
+- ✅ Maximum 50 messages per batch request
+- ✅ Configurable body length limit (default 50k, max 500k characters)
+- ✅ Automatic truncation with clear "...[truncated]" indicators
+- ✅ Fail-fast approach: any single message failure stops entire batch
+- ✅ Input validation for all message IDs and parameters
 
 ### Step 5: Create Gmail Send Message Tool
 **Files**: `src/services/gmail/tools/sendMessage.ts`

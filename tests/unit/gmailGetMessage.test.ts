@@ -25,17 +25,25 @@ describe('Gmail Get Message Tool', () => {
   describe('Tool Definition', () => {
     it('should have correct name and description', () => {
       expect(gmailGetMessageTool.name).toBe('gmail_get_message');
-      expect(gmailGetMessageTool.description).toBe('Get detailed Gmail message content by message ID');
+      expect(gmailGetMessageTool.description).toBe('Get Gmail message content for one or more message IDs (batch support)');
     });
 
     it('should have correct input schema', () => {
       expect(gmailGetMessageTool.inputSchema).toEqual({
         type: 'object',
-        required: ['messageId'],
+        required: ['messageIds'],
         properties: {
-          messageId: {
-            type: 'string',
-            description: 'Gmail message ID to retrieve'
+          messageIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of Gmail message IDs to retrieve (1-50)'
+          },
+          maxBodyLength: {
+            type: 'number',
+            default: 50000,
+            minimum: 1000,
+            maximum: 500000,
+            description: 'Maximum characters per message body (default 50k, max 500k)'
           }
         }
       });
@@ -63,7 +71,7 @@ describe('Gmail Get Message Tool', () => {
     it('should successfully get message details', async () => {
       mockGmailClient.mockResolvedValue(mockMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content).toHaveLength(1);
@@ -84,7 +92,7 @@ describe('Gmail Get Message Tool', () => {
       const unreadMessage = { ...mockMessage, isRead: false };
       mockGmailClient.mockResolvedValue(unreadMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Status: UNREAD');
@@ -94,7 +102,7 @@ describe('Gmail Get Message Tool', () => {
       const { body, ...messageWithoutBody } = mockMessage;
       mockGmailClient.mockResolvedValue(messageWithoutBody);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('[Preview]: Test message snippet');
@@ -104,7 +112,7 @@ describe('Gmail Get Message Tool', () => {
       const { body, ...messageWithoutContent } = { ...mockMessage, snippet: '' };
       mockGmailClient.mockResolvedValue(messageWithoutContent);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('[No content available]');
@@ -120,7 +128,7 @@ describe('Gmail Get Message Tool', () => {
       };
       mockGmailClient.mockResolvedValue(minimalMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Message ID: test-id');
@@ -128,32 +136,70 @@ describe('Gmail Get Message Tool', () => {
       expect(result.content[0].text).toContain('Status: READ');
     });
 
-    it('should validate messageId is required', async () => {
+    it('should validate messageIds is required', async () => {
       const result = await gmailGetMessageTool.handler({});
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+      expect(result.content[0].text).toBe('Error: messageIds is required and must be an array');
     });
 
-    it('should validate messageId is a string', async () => {
-      const result = await gmailGetMessageTool.handler({ messageId: 123 });
+    it('should validate messageIds is an array', async () => {
+      const result = await gmailGetMessageTool.handler({ messageIds: 'not-an-array' });
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId is required and must be a string');
+      expect(result.content[0].text).toBe('Error: messageIds is required and must be an array');
     });
 
-    it('should validate messageId is not empty', async () => {
-      const result = await gmailGetMessageTool.handler({ messageId: '   ' });
+    it('should validate messageIds is not empty', async () => {
+      const result = await gmailGetMessageTool.handler({ messageIds: [] });
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe('Error: messageId cannot be empty');
+      expect(result.content[0].text).toBe('Error: messageIds array cannot be empty');
     });
 
-    it('should handle Gmail client errors', async () => {
+    it('should validate maximum batch size', async () => {
+      const messageIds = Array(51).fill('test-id');
+      const result = await gmailGetMessageTool.handler({ messageIds });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: Maximum 50 message IDs allowed per batch');
+    });
+
+    it('should validate all message IDs are strings', async () => {
+      const result = await gmailGetMessageTool.handler({ messageIds: ['valid-id', 123, 'another-valid-id'] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: All message IDs must be non-empty strings');
+    });
+
+    it('should validate message IDs are not empty', async () => {
+      const result = await gmailGetMessageTool.handler({ messageIds: ['valid-id', '   ', 'another-valid-id'] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Error: All message IDs must be non-empty strings');
+    });
+
+    it('should handle multiple messages successfully', async () => {
+      const message1 = { ...mockMessage, id: 'msg-1', subject: 'First Message' };
+      const message2 = { ...mockMessage, id: 'msg-2', subject: 'Second Message' };
+      
+      mockGmailClient
+        .mockResolvedValueOnce(message1)
+        .mockResolvedValueOnce(message2);
+
+      const result = await gmailGetMessageTool.handler({ messageIds: ['msg-1', 'msg-2'] });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Subject: First Message');
+      expect(result.content[0].text).toContain('Subject: Second Message');
+      expect(result.content[0].text).toContain('=== MESSAGE SEPARATOR ===');
+    });
+
+    it('should handle Gmail client errors (fail-fast)', async () => {
       const error = new CalendarError('Message not found', MCPErrorCode.APIError);
       mockGmailClient.mockRejectedValue(error);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'invalid-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['invalid-id'] });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe('Error: Message not found');
@@ -162,7 +208,7 @@ describe('Gmail Get Message Tool', () => {
     it('should handle unknown errors', async () => {
       mockGmailClient.mockRejectedValue(new Error('Network error'));
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-id'] });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe('Error: Network error');
@@ -171,18 +217,26 @@ describe('Gmail Get Message Tool', () => {
     it('should handle non-Error exceptions', async () => {
       mockGmailClient.mockRejectedValue('String error');
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-id'] });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe('Error: Unknown error');
     });
 
-    it('should trim whitespace from messageId', async () => {
+    it('should trim whitespace from messageIds', async () => {
       mockGmailClient.mockResolvedValue(mockMessage);
 
-      await gmailGetMessageTool.handler({ messageId: '  test-message-id  ' });
+      await gmailGetMessageTool.handler({ messageIds: ['  test-message-id  '] });
 
-      expect(mockGmailClient).toHaveBeenCalledWith('test-message-id');
+      expect(mockGmailClient).toHaveBeenCalledWith('test-message-id', undefined);
+    });
+
+    it('should pass maxBodyLength to client', async () => {
+      mockGmailClient.mockResolvedValue(mockMessage);
+
+      await gmailGetMessageTool.handler({ messageIds: ['test-id'], maxBodyLength: 25000 });
+
+      expect(mockGmailClient).toHaveBeenCalledWith('test-id', 25000);
     });
 
     it('should handle HTML content in message body', async () => {
@@ -192,7 +246,7 @@ describe('Gmail Get Message Tool', () => {
       };
       mockGmailClient.mockResolvedValue(htmlMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       // The mock returns the body as-is, so we test that HTML content is included
@@ -206,7 +260,7 @@ describe('Gmail Get Message Tool', () => {
       };
       mockGmailClient.mockResolvedValue(multipartMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Complete message body from multipart extraction');
@@ -219,7 +273,7 @@ describe('Gmail Get Message Tool', () => {
       };
       mockGmailClient.mockResolvedValue(encodedMessage);
 
-      const result = await gmailGetMessageTool.handler({ messageId: 'test-message-id' });
+      const result = await gmailGetMessageTool.handler({ messageIds: ['test-message-id'] });
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Decoded base64url content with special characters');

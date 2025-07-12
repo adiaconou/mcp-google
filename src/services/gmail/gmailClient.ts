@@ -172,10 +172,11 @@ export class GmailClient {
   /**
    * Get a specific Gmail message by ID
    * @param messageId - The ID of the message to retrieve
+   * @param maxBodyLength - Maximum length of message body in characters (default: no limit)
    * @returns Promise resolving to the Gmail message
    * @throws {CalendarError} If the request fails
    */
-  async getMessage(messageId: string): Promise<GmailMessage> {
+  async getMessage(messageId: string, maxBodyLength?: number): Promise<GmailMessage> {
     try {
       const gmail = await this.ensureInitialized();
       
@@ -190,7 +191,7 @@ export class GmailClient {
         throw new Error('No data returned from Gmail API');
       }
 
-      const message = this.convertToGmailMessage(response.data);
+      const message = this.convertToGmailMessage(response.data, maxBodyLength);
       
       return message;
 
@@ -266,9 +267,10 @@ export class GmailClient {
   /**
    * Convert Gmail API message to our GmailMessage format
    * @param gmailMessage - Gmail API message object
+   * @param maxBodyLength - Maximum length of message body in characters
    * @returns GmailMessage in our format
    */
-  private convertToGmailMessage(gmailMessage: gmail_v1.Schema$Message): GmailMessage {
+  private convertToGmailMessage(gmailMessage: gmail_v1.Schema$Message, maxBodyLength?: number): GmailMessage {
     const headers = gmailMessage.payload?.headers || [];
     
     // Extract common headers
@@ -278,7 +280,12 @@ export class GmailClient {
     };
 
     // Extract message body
-    const body = this.extractMessageBody(gmailMessage.payload);
+    let body = this.extractMessageBody(gmailMessage.payload);
+    
+    // Apply body length limit if specified
+    if (maxBodyLength && body.length > maxBodyLength) {
+      body = body.substring(0, maxBodyLength) + '...[truncated]';
+    }
 
     const message: GmailMessage = {
       id: gmailMessage.id || '',
