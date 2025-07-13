@@ -2,14 +2,15 @@
 
 ## Overview
 
-The Gmail Email Screenshot Tool (`gmail_export_email_screenshot`) is a powerful MCP tool that captures Gmail email content as high-quality PNG screenshots. This tool is perfect for archiving receipts, important email content, and creating visual documentation of email communications.
+The Gmail Email Screenshot Tool (`gmail_export_email_screenshot`) is a powerful MCP tool that captures Gmail email content as high-quality JPEG screenshots. This tool is perfect for archiving receipts, important email content, and creating visual documentation of email communications.
 
 ## Features
 
-- **High-Quality Screenshots**: Captures email content as PNG images with configurable quality settings
+- **High-Quality Screenshots**: Captures email content as JPEG images with configurable quality settings
 - **Inline Image Support**: Processes and includes inline images from email content
 - **CSS Normalization**: Applies proper styling to ensure emails render correctly
 - **Flexible Output Options**: Customizable dimensions, quality, and file naming
+- **Optimized File Sizes**: JPEG compression reduces file sizes while maintaining visual quality
 - **Security**: Validates output paths and restricts file operations to safe directories
 - **Error Handling**: Comprehensive error handling with detailed feedback
 
@@ -61,6 +62,11 @@ The Gmail Email Screenshot Tool (`gmail_export_email_screenshot`) is a powerful 
   - Range: 1-3
   - Higher values produce sharper images but larger file sizes
 
+- **`quality`** (number): JPEG quality setting
+  - Default: 85
+  - Range: 50-100
+  - Higher values produce better quality but larger file sizes
+
 ## Usage Examples
 
 ### Basic Usage
@@ -102,14 +108,35 @@ The Gmail Email Screenshot Tool (`gmail_export_email_screenshot`) is a powerful 
 }
 ```
 
+### Custom Quality Settings
+
+```json
+{
+  "messageId": "18c8f2a1b2c3d4e5",
+  "quality": 95,
+  "filename": "high_quality_email"
+}
+```
+
+### Optimized for File Size
+
+```json
+{
+  "messageId": "18c8f2a1b2c3d4e5",
+  "quality": 60,
+  "deviceScaleFactor": 1,
+  "filename": "compressed_email"
+}
+```
+
 ## Output Information
 
 The tool returns detailed information about the captured screenshot:
 
 ```json
 {
-  "filePath": "/path/to/screenshot.png",
-  "fileSize": 245760,
+  "filePath": "/path/to/screenshot.jpg",
+  "fileSize": 145760,
   "dimensions": {
     "width": 800,
     "height": 1200

@@ -1,7 +1,7 @@
 /**
- * Gmail Export Email Screenshot Tool - MCP tool for capturing email content as PNG screenshots
+ * Gmail Export Email Screenshot Tool - MCP tool for capturing email content as JPEG screenshots
  * 
- * This tool processes Gmail email HTML content and captures it as a high-quality PNG screenshot
+ * This tool processes Gmail email HTML content and captures it as a high-quality JPEG screenshot
  * using Puppeteer. It handles inline images, applies CSS normalization, and provides
  * configurable output options for different use cases.
  */
@@ -23,7 +23,8 @@ const ExportEmailScreenshotSchema = z.object({
   includeImages: z.boolean().optional().describe('Include inline images (default: true)'),
   waitForImages: z.number().int().min(0).max(10000).optional().describe('Wait time for images to load in ms (default: 2000)'),
   fullPage: z.boolean().optional().describe('Capture full page height (default: true)'),
-  deviceScaleFactor: z.number().min(1).max(3).optional().describe('Device scale factor for high DPI (default: 2)')
+  deviceScaleFactor: z.number().min(1).max(3).optional().describe('Device scale factor for high DPI (default: 2)'),
+  quality: z.number().int().min(50).max(100).optional().describe('JPEG quality (50-100, default: 85)')
 });
 
 type ExportEmailScreenshotInput = z.infer<typeof ExportEmailScreenshotSchema>;
@@ -46,11 +47,11 @@ interface ScreenshotResult {
 }
 
 /**
- * Export Gmail email content as a PNG screenshot
+ * Export Gmail email content as a JPEG screenshot
  * 
  * This tool processes the HTML content of a Gmail message and captures it as a screenshot
  * using Puppeteer. It handles inline images, applies CSS normalization, and provides
- * high-quality PNG output suitable for archiving email receipts and important content.
+ * high-quality JPEG output suitable for archiving email receipts and important content.
  * 
  * @param input - Screenshot parameters
  * @returns Screenshot capture result with file path and metadata
@@ -69,7 +70,8 @@ export async function exportEmailScreenshot(input: ExportEmailScreenshotInput): 
       includeImages: validatedInput.includeImages ?? true,
       waitForImages: validatedInput.waitForImages || 2000,
       fullPage: validatedInput.fullPage ?? true,
-      deviceScaleFactor: validatedInput.deviceScaleFactor || 2
+      deviceScaleFactor: validatedInput.deviceScaleFactor || 2,
+      quality: validatedInput.quality || 85
     };
 
     // Validate message ID format (basic Gmail message ID validation)
@@ -93,8 +95,8 @@ export async function exportEmailScreenshot(input: ExportEmailScreenshotInput): 
 
     // Generate output filename if not provided
     const outputFilename = options.filename 
-      ? `${options.filename}.png`
-      : `email_${validatedInput.messageId}_${Date.now()}.png`;
+      ? `${options.filename}.jpg`
+      : `email_${validatedInput.messageId}_${Date.now()}.jpg`;
 
     // Validate and prepare output path
     const outputPath = await validateOutputPath(options.outputPath);
@@ -106,6 +108,7 @@ export async function exportEmailScreenshot(input: ExportEmailScreenshotInput): 
       waitForImages: options.waitForImages,
       fullPage: options.fullPage,
       deviceScaleFactor: options.deviceScaleFactor,
+      quality: options.quality,
       ...(options.height && { height: options.height })
     };
     
@@ -159,6 +162,7 @@ async function captureScreenshot(
     waitForImages: number;
     fullPage: boolean;
     deviceScaleFactor: number;
+    quality: number;
   }
 ): Promise<{ dimensions: { width: number; height: number } }> {
   let browser;
@@ -214,7 +218,8 @@ async function captureScreenshot(
     // Get page dimensions for full page capture
     let screenshotOptions: any = {
       path: outputPath,
-      type: 'png'
+      type: 'jpeg',
+      quality: options.quality
     };
 
     if (options.fullPage) {
@@ -300,7 +305,7 @@ async function validateOutputPath(outputPath: string): Promise<string> {
  */
 export const exportEmailScreenshotTool = {
   name: 'gmail_export_email_screenshot',
-  description: 'Export Gmail email content as a PNG screenshot. Processes email HTML content including inline images and captures it as a high-quality screenshot suitable for archiving receipts and important email content.',
+  description: 'Export Gmail email content as a JPEG screenshot. Processes email HTML content including inline images and captures it as a high-quality, compressed screenshot suitable for archiving receipts and important email content.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -347,6 +352,12 @@ export const exportEmailScreenshotTool = {
         description: 'Device scale factor for high DPI screenshots (default: 2, range: 1-3)',
         minimum: 1,
         maximum: 3
+      },
+      quality: {
+        type: 'number',
+        description: 'JPEG quality (default: 85, range: 50-100)',
+        minimum: 50,
+        maximum: 100
       }
     },
     required: ['messageId']
@@ -368,7 +379,7 @@ export const exportEmailScreenshotTool = {
 - 🖼️ Images: ${result.processingInfo.hasImages ? `${result.processingInfo.imageCount} images included` : 'No images'}
 ${result.processingInfo.warnings.length > 0 ? `- ⚠️ Warnings: ${result.processingInfo.warnings.join(', ')}` : ''}
 
-The email content has been captured as a high-quality PNG screenshot and saved to your specified location.`
+The email content has been captured as a high-quality JPEG screenshot and saved to your specified location.`
         }
       ],
       isError: false
