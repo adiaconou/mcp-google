@@ -34,7 +34,7 @@ Before starting Phase 4 implementation, the user must complete these setup tasks
 1. ☑ Extend OAuth manager to support Drive scope (with tests)
 2. ☑ Create Drive API client with authentication integration (with tests)
 3. ☑ Implement `drive_list_files` tool (with unit/integration tests and MCP registration)
-4. ☐ Implement `drive_get_file` tool (with unit/integration tests and MCP registration)
+4. ☑ Implement `drive_get_file` tool (with unit/integration tests and MCP registration)
 5. ☑ Implement `drive_upload_file` tool (with unit/integration tests and MCP registration)
 6. ☑ Implement `drive_create_folder` tool (with unit/integration tests and MCP registration)
 

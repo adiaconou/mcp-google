@@ -6,8 +6,6 @@
  */
 
 export { driveListFilesTool } from './listFiles';
+export { driveGetFileTool } from './getFile';
 export { driveUploadFileTool } from './uploadFile';
 export { driveCreateFolderTool } from './createFolder';
-
-// Future Drive tools will be exported here:
-// export { driveGetFileTool } from './getFile';

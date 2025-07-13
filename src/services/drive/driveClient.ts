@@ -193,6 +193,46 @@ export class DriveClient {
   }
 
   /**
+   * Download file content as Buffer for document processing
+   * @param fileId - The ID of the file to download
+   * @param maxSize - Maximum file size in bytes (default 2MB, reduced for stability)
+   * @returns Promise resolving to file buffer
+   * @throws {CalendarError} If the request fails
+   */
+  async downloadFileBuffer(fileId: string, maxSize: number = 2097152): Promise<Buffer> {
+    try {
+      const drive = await this.ensureInitialized();
+      
+      // First check file size
+      const metaResponse = await drive.files.get({
+        fileId,
+        fields: 'size'
+      });
+
+      const fileSize = metaResponse.data.size ? parseInt(metaResponse.data.size) : 0;
+      if (fileSize > maxSize) {
+        throw new CalendarError(
+          `File too large for content extraction (${Math.round(fileSize / 1024 / 1024)}MB, max ${Math.round(maxSize / 1024 / 1024)}MB)`,
+          MCPErrorCode.ValidationError
+        );
+      }
+
+      // Download file content as buffer
+      const contentResponse = await drive.files.get({
+        fileId,
+        alt: 'media'
+      }, {
+        responseType: 'arraybuffer'
+      });
+
+      return Buffer.from(contentResponse.data as ArrayBuffer);
+
+    } catch (error) {
+      throw this.handleApiError(error, 'download file buffer');
+    }
+  }
+
+  /**
    * Upload a file to Drive
    * @param params - Parameters for uploading the file
    * @returns Promise resolving to the uploaded file
