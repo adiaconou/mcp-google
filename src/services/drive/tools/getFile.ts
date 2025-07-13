@@ -89,15 +89,17 @@ async function handleGetFile(params: unknown): Promise<MCPToolResult> {
           // Provide user feedback that processing is starting
           const sizeMB = file.size ? Math.round(file.size / 1024 / 1024) : 0;
           if (sizeMB > 0) {
-            fileInfo += `\n*Processing ${file.mimeType === 'application/pdf' ? 'PDF' : 'DOCX'} file (${sizeMB}MB) for text extraction...*\n`;
+            fileInfo += `\n⏳ Processing ${file.mimeType === 'application/pdf' ? 'PDF' : 'DOCX'} file (${sizeMB}MB) for text extraction...\n`;
           }
           
-          const buffer = await driveClient.instance.downloadFileBuffer(getParams.fileId, 2097152); // 2MB max (reduced for stability)
+          const buffer = await driveClient.instance.downloadFileBuffer(getParams.fileId, 1048576); // 1MB max (reduced for Claude Desktop stability)
           const extracted = await documentParser.instance.extractFromFile(buffer, file.mimeType);
           
-          fileInfo += `\n**Extracted Text Content:**\n`;
-          fileInfo += `*Extracted from ${extracted.extractedFrom.toUpperCase()} (${extracted.wordCount} words)*\n\n`;
-          fileInfo += `\`\`\`\n${extracted.text}\n\`\`\``;
+          fileInfo += `\n**📄 Extracted Text Content:**\n`;
+          fileInfo += `*Extracted from ${extracted.extractedFrom.toUpperCase()} • ${extracted.wordCount} words • ${extracted.text.length} characters*\n\n`;
+          
+          // Use plain text formatting instead of code blocks to prevent streaming issues
+          fileInfo += `${extracted.text}`;
         } catch (extractError) {
           const errorMsg = extractError instanceof Error ? extractError.message : 'Unknown extraction error';
           

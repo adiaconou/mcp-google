@@ -185,6 +185,28 @@ export class GoogleMCPServer {
         // Execute the tool using our registry
         const result = await toolRegistry.executeTool(name, args || {});
         
+        // Monitor response size for Claude Desktop stability
+        const responseText = result.content.map(c => c.text || '').join('');
+        const responseSizeKB = Math.round(responseText.length / 1024);
+        
+        // Warn about large responses that might cause client issues
+        if (responseSizeKB > 100) { // 100KB threshold
+          console.error(`[MCP Server] Large response warning: ${responseSizeKB}KB for tool ${name} - may cause client streaming issues`);
+          
+          // Add size warning to response for very large responses
+          if (responseSizeKB > 200) { // 200KB critical threshold
+            result.content = [{
+              type: 'text' as const,
+              text: `⚠️ **Large Response Warning**\n\nThis response (${responseSizeKB}KB) may cause streaming issues in Claude Desktop.\n\n` +
+                    `Consider using smaller file sizes or requesting specific sections of documents.\n\n---\n\n` +
+                    responseText.substring(0, 50000) + // Limit to 50KB
+                    `\n\n[Response truncated at 50KB for stability - original was ${responseSizeKB}KB]`
+            }];
+          }
+        }
+        
+        console.error(`[MCP Server] Tool ${name} completed successfully (${responseSizeKB}KB response)`);
+        
         // Convert our result format to MCP format
         return {
           content: result.content,

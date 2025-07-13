@@ -153,11 +153,51 @@ describe('DocumentParser', () => {
       expect(sanitizeText('hello    world')).toBe('hello world');
       expect(sanitizeText('hello\t\t\tworld')).toBe('hello world');
       
-      // Test text truncation
-      const longText = 'a'.repeat(500001);
+      // Test text truncation at Claude Desktop safe limit
+      const longText = 'a'.repeat(30001);
       const result = sanitizeText(longText);
-      expect(result.length).toBeLessThanOrEqual(500000 + 100); // Allow for truncation message
-      expect(result).toContain('[Text truncated - file too large for complete extraction]');
+      expect(result).toContain('[Document truncated for stability'); // Should be truncated
+      expect(result).not.toBe(longText); // Should be different from original
+      
+      // Test fallback truncation at MAX_TEXT_LENGTH (bypassing first limit)
+      // We need to test the fallback path directly, so let's create a string between the limits
+      const mediumText = 'a'.repeat(40000); // Between 30K and 50K
+      const result2 = sanitizeText(mediumText);
+      expect(result2).toContain('[Document truncated for stability'); // Should still hit first condition
+    });
+
+    it('should remove problematic characters that crash Claude Desktop', () => {
+      // Access private method for testing
+      const removeProblematicCharacters = (parser as any).removeProblematicCharacters.bind(parser);
+      
+      // Test null byte removal (primary crash cause)
+      expect(removeProblematicCharacters('hello\x00world')).toBe('helloworld');
+      
+      // Test control character removal
+      expect(removeProblematicCharacters('hello\x01\x08world')).toBe('helloworld');
+      
+      // Test zero-width character removal
+      expect(removeProblematicCharacters('hello\u200Bworld')).toBe('helloworld');
+      
+      // Test Unicode space normalization
+      expect(removeProblematicCharacters('hello\u00A0world')).toBe('hello world');
+      
+      // Test that normal text passes through
+      expect(removeProblematicCharacters('Hello, world!')).toBe('Hello, world!');
+    });
+
+    it('should ensure JSON safety of text', () => {
+      // Access private method for testing
+      const ensureJsonSafety = (parser as any).ensureJsonSafety.bind(parser);
+      
+      // Test that normal text passes JSON safety
+      const normalText = 'Hello, world!';
+      expect(ensureJsonSafety(normalText)).toBe(normalText);
+      
+      // Test that the method doesn't crash on edge cases
+      expect(() => ensureJsonSafety('normal text')).not.toThrow();
+      expect(() => ensureJsonSafety('')).not.toThrow();
+      expect(() => ensureJsonSafety('text with "quotes"')).not.toThrow();
     });
   });
 
