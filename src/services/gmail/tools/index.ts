@@ -9,6 +9,7 @@ export { gmailListMessagesTool } from './listMessages';     // For browsing
 export { gmailGetMessageTool } from './getMessage';
 export { gmailSearchMessagesTool } from './searchMessages'; // For searching
 export { gmailDownloadAttachmentTool } from './downloadAttachment'; // For downloading attachments
+export { exportEmailScreenshotTool } from './exportEmailScreenshot'; // For capturing email screenshots
 
 // Future Gmail tools will be exported here:
 // export { gmailSendMessageTool } from './sendMessage';

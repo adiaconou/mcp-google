@@ -26,11 +26,13 @@
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.3",
+    "@types/puppeteer": "^7.0.4",
     "dotenv": "^17.0.1",
     "google-auth-library": "^10.1.0",
     "googleapis": "^150.0.1",
     "mammoth": "^1.6.0",
     "pdf-parse": "^1.1.1",
+    "puppeteer": "^24.12.1",
     "zod": "^3.25.71"
   },
   "devDependencies": {
