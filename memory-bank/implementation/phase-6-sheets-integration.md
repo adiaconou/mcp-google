@@ -31,8 +31,8 @@ Before starting Phase 6 implementation, the user must complete these setup tasks
 - Complete integration with MCP server and Claude Desktop
 
 ## Implementation Steps
-1. ☐ Extend OAuth manager to support Sheets scopes (with tests)
-2. ☐ Implement `sheets_create_spreadsheet` tool (with unit/integration tests and MCP registration)
+1. ☑ Extend OAuth manager to support Sheets scopes (with tests)
+2. ☑ Implement `sheets_create_spreadsheet` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 3. ☐ Implement `sheets_get_data` tool (with unit/integration tests and MCP registration)
 4. ☐ Implement `sheets_update_cells` tool (with unit/integration tests and MCP registration)
 5. ☐ Implement `sheets_format_cells` tool (with unit/integration tests and MCP registration)

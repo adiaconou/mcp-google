@@ -32,6 +32,7 @@ import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool } from './services/drive/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -308,6 +309,14 @@ export class GoogleMCPServer {
     toolRegistry.register(driveGetFileTool);          // Get Drive file metadata and content
     toolRegistry.register(driveUploadFileTool);       // Upload files to Drive
     toolRegistry.register(driveCreateFolderTool);     // Create folders in Drive
+    
+    // Register Google Sheets tools for spreadsheet management
+    toolRegistry.register({
+      name: createSpreadsheetSchema.name,
+      description: createSpreadsheetSchema.description,
+      inputSchema: createSpreadsheetSchema.inputSchema,
+      handler: createSpreadsheet
+    });
   }
 
   /**
