@@ -1,6 +1,6 @@
 # System Patterns - Architecture and Design
 
-> **Note on Implementation Status**: This document outlines the **target architecture** for the fully realized project. The implementation is following an incremental, value-first approach. Some advanced patterns described here (e.g., Circuit Breaker, Rate Limiter) are planned for later phases, specifically the Production Hardening phase. Please refer to `progress.md` for the current implementation status.
+> **Note on Implementation Status**: This document outlines the **proven architecture patterns** from the current implementation. The project has successfully implemented Calendar, Gmail, and Drive integrations using these patterns. Advanced patterns (e.g., Circuit Breaker, Rate Limiter) are planned for Production Hardening phase. The Service Module Pattern, OAuth Management, and Tool Registry patterns are fully implemented and proven effective.
 
 ## Overall Architecture
 

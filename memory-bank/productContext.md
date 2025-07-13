@@ -1,232 +1,245 @@
-# Product Context - Google MCP Server
+# Product Context - Project Purpose and Capabilities
 
-## Why This Project Exists
+## Project Purpose
 
-### The Personal Problem
-You want to use AI agents (like Claude Desktop) to help manage your personal Google services, but face several challenges:
+The **Google MCP Server** is a **personal productivity tool** that bridges AI agents (like Claude Desktop) with your personal Google services through the Model Context Protocol (MCP). It enables AI-powered management of your personal email, calendar, files, and documents while maintaining complete privacy and local control.
 
-1. **No Direct Integration**: AI agents can't directly access your Gmail, Calendar, or Drive
-2. **Manual Tasks**: You have to manually check emails, schedule events, and manage files
-3. **Context Switching**: Constantly switching between AI chat and Google services breaks workflow
-4. **Privacy Concerns**: Don't want to use cloud-based services that access your personal data
-5. **Complex Setup**: Existing solutions are too complex for personal use
+## Core Value Proposition
 
-### The Personal Solution
-The Google MCP Server provides a **private, local bridge** that:
+### What It Does
+- **AI-Powered Google Integration**: Connect AI agents directly to your personal Google services
+- **Privacy-First Design**: All processing happens locally on your machine
+- **Comprehensive Coverage**: Access Gmail, Drive, Calendar with document processing capabilities
+- **Seamless Authentication**: Automatic OAuth flow management for hassle-free setup
+- **Production-Ready**: Robust error handling and security policies
 
-- **Enables AI Integration**: Your AI assistant can directly help with Gmail, Calendar, and Drive
-- **Maintains Privacy**: Everything runs locally on your machine - no data leaves your control
-- **Simplifies Workflow**: Ask your AI to "check my emails" or "schedule a meeting" naturally
-- **Secure by Design**: Uses Google's official OAuth with encrypted local token storage
-- **Personal Focus**: Designed specifically for single-user, personal account management
+### Why It Exists
+- **Personal Productivity**: Enhance your workflow with AI assistance for Google services
+- **Privacy Control**: Keep your data local while leveraging AI capabilities
+- **Unified Interface**: Single MCP server for all your Google productivity needs
+- **AI Integration**: Purpose-built for AI agents and personal assistants
 
-## Target Use Cases
+## Current Capabilities
 
-### Calendar Management
-**Personal Assistant Workflows:**
-- "Show me my schedule for tomorrow"
-- "Create a meeting with John next Tuesday at 2 PM"
-- "Find a free slot for a 1-hour meeting this week"
-- "Reschedule my 3 PM meeting to 4 PM"
+### Working Google Services (3 services, 10 tools)
 
-**Technical Implementation:**
-- List upcoming events with filtering and search
-- Create events with attendees, reminders, and locations
-- Update existing events and handle conflicts
-- Check availability across multiple calendars
+#### Google Calendar Integration ✅
+**Tools Available:**
+- `calendar_list_events`: List calendar events with filtering and timezone support
+- `calendar_create_event`: Create events with attendees, reminders, timezone handling
 
-### Email Processing
-**Personal Assistant Workflows:**
-- "Summarize emails from my boss this week"
-- "Find all emails with attachments from last month"
-- "Draft a reply to the latest email from Sarah"
-- "Download all attachments from contract emails to my local folder"
+**Key Features:**
+- Smart timezone processing for calendar events
+- Comprehensive reminder configuration for events
+- Attendee management and meeting coordination
+- Date range filtering and event search
 
-**Technical Implementation:**
-- Search Gmail with complex filters (sender, date, labels, content)
-- Extract email content, metadata, and attachments
-- **Attachment Support**: Download any non-inline email attachments.
-- Compose and send emails with proper formatting
-- Manage labels and organize email threads
+**Use Cases:**
+- "Show me my meetings for next week"
+- "Create a team meeting for tomorrow at 2 PM with reminders"
+- "Find all events with John in the next month"
 
-### Document & File Management
-**Personal Assistant Workflows:**
-- "Create a meeting notes document for today's standup"
-- "Find all spreadsheets related to the Q4 budget"
-- "Share the project proposal with the team"
-- "Organize my Downloads folder into Drive"
+#### Gmail Integration ✅
+**Tools Available:**
+- `gmail_list_messages`: List emails with filtering (date, sender, labels)
+- `gmail_get_message`: Read email content with thread support
+- `gmail_search_messages`: Advanced Gmail query syntax support
+- `gmail_download_attachment`: Secure PDF/DOCX only attachment downloads
 
-**Technical Implementation:**
-- Create and edit Google Docs with structured content
-- Search and organize Drive files and folders
-- Manage sharing permissions and collaboration
-- Upload and download files with metadata preservation
+**Key Features:**
+- Advanced email search with Gmail query syntax
+- Email content parsing (HTML/text handling)
+- Thread support for conversation tracking
+- Security-focused attachment handling (PDF/DOCX only)
+- Label and metadata management
 
-### Content Creation & Analysis
-**Personal Assistant Workflows:**
-- "Create a spreadsheet tracking my fitness goals"
-- "Extract action items from meeting notes and add to my task list"
-- "Generate a weekly report from my calendar and email data"
-- "Analyze my email patterns to optimize my schedule"
+**Use Cases:**
+- "Find all emails from my manager this week"
+- "Download the PDF attachment from the contract email"
+- "Show me unread emails about the project"
+- "Search for emails containing 'budget approval'"
 
-**Technical Implementation:**
-- Create and populate Sheets with structured data
-- Extract and analyze content from Docs and emails
-- Generate reports combining data from multiple sources
-- Perform data analysis and visualization
+#### Google Drive Integration ✅
+**Tools Available:**
+- `drive_list_files`: List files and folders with metadata
+- `drive_get_file`: Get file content with PDF/DOCX parsing
+- `drive_upload_file`: Upload files with metadata and sharing options
+- `drive_create_folder`: Create organized folder structures
 
-## User Experience Goals
+**Key Features:**
+- Advanced document processing (PDF text extraction, DOCX content extraction)
+- File metadata and sharing status information
+- Folder organization and management
+- Content-aware file handling with security policies
+- Worker-based processing for large files
 
-### Simplicity
-**For End Users:**
-- One-time OAuth setup with clear instructions
-- Natural language interactions through AI agents
-- Automatic handling of authentication and permissions
-- No technical knowledge required for daily use
+**Use Cases:**
+- "Find all PDFs in my Documents folder"
+- "Extract text from the quarterly report PDF"
+- "Upload this document and share it with the team"
+- "Create a project folder structure"
 
-**For Developers:**
-- Simple NPM installation and configuration
-- Clear MCP tool interfaces with TypeScript support
-- Comprehensive documentation and examples
-- Minimal boilerplate for common operations
+### Advanced Features Implemented
 
-### Security & Privacy
-**Data Protection:**
-- All processing happens locally on user's machine
-- No external servers or cloud dependencies
-- Encrypted token storage with user-controlled keys
-- Minimal scope requests following principle of least privilege
+#### Document Processing Capabilities
+- **PDF Text Extraction**: Using pdf-parse library for comprehensive text extraction
+- **DOCX Content Processing**: Using mammoth library for document content extraction
+- **Security Policy**: PDF and DOCX only processing for security and productivity focus
+- **Worker-Based Processing**: Large file handling without blocking main thread
+- **Intelligent Formatting**: Preserves document structure and formatting where possible
 
-**Transparency:**
-- Open source implementation for full auditability
-- Clear documentation of all data flows
-- User control over all credentials and permissions
-- No telemetry or usage tracking
+#### Multi-Service OAuth Management
+- **Seamless Authentication**: Automatic OAuth flow across Calendar, Gmail, Drive
+- **Scope Management**: Dynamic scope requests based on tool requirements
+- **Token Refresh**: Automatic token refresh with 5-minute expiry buffer
+- **Encrypted Storage**: Local token storage with system keychain integration
 
-### Reliability
-**Robust Operation:**
-- Automatic token refresh and error recovery
-- Graceful handling of API rate limits
-- Comprehensive error messages for troubleshooting
-- Offline capability where possible
+#### Production-Ready Features
+- **Auto-Authentication**: Automatic OAuth flow management for seamless user experience
+- **Response Monitoring**: Large document handling optimized for Claude Desktop stability
+- **Comprehensive Error Handling**: Robust error handling with clear user guidance
+- **Security Policies**: Input validation and file type restrictions
 
-**Performance:**
-- Fast response times for local operations (<300ms)
-- Intelligent caching to minimize API calls
-- Batch operations for efficiency
-- Minimal resource usage
+## Use Cases and Workflows
 
-## Value Proposition
+### Personal Email Management
+- **Email Triage**: "Show me important emails from this week that need responses"
+- **Document Extraction**: "Download and summarize the PDF attachments from contract emails"
+- **Search and Organization**: "Find all emails about the project and organize by priority"
+- **Content Analysis**: "Extract action items from emails in my inbox"
 
-### For AI Agent Developers
-- **Faster Development**: Pre-built Google integrations reduce development time
-- **Better Security**: Proven OAuth implementation with security best practices
-- **Consistent APIs**: Normalized interfaces across all Google services
-- **Type Safety**: Full TypeScript support with comprehensive type definitions
+### Calendar and Scheduling
+- **Meeting Coordination**: "Schedule a team meeting next week and send invites"
+- **Schedule Analysis**: "Show me my availability for the next two weeks"
+- **Event Management**: "Find all recurring meetings and show their details"
+- **Time Planning**: "Create calendar blocks for focused work time"
 
-### For End Users
-- **Privacy First**: Complete control over data and credentials
-- **Seamless Integration**: Works with existing AI assistants and tools
-- **Comprehensive Access**: All major Google services in one package
-- **Local Operation**: No dependency on external services or internet connectivity
+### Document and File Management
+- **Document Processing**: "Extract text from all PDFs in my project folder"
+- **File Organization**: "Create a folder structure for the new project"
+- **Content Search**: "Find documents containing specific keywords"
+- **File Sharing**: "Upload and share documents with team members"
 
-### For Organizations
-- **Compliance Ready**: Local-first architecture supports data governance
-- **Cost Effective**: No per-user licensing or cloud service fees
-- **Customizable**: Open source allows for organizational customization
-- **Secure**: Minimal attack surface with local-only operation
+### Cross-Service Workflows
+- **Email to Calendar**: "Create calendar events from meeting requests in email"
+- **Document to Email**: "Find documents mentioned in recent emails"
+- **Project Management**: "Organize project files, emails, and meetings"
 
-## Competitive Landscape
+## Technical Architecture
 
-### Existing Solutions
-1. **Direct Google API Integration**
-   - Complex OAuth implementation
-   - Inconsistent error handling
-   - Significant development overhead
-   - Security implementation challenges
+### MCP Protocol Implementation
+- **Stdio Transport**: Direct communication with MCP clients like Claude Desktop
+- **JSON-RPC 2.0**: Standard protocol for tool discovery and execution
+- **Tool Registry**: Dynamic registration of all Google service tools
+- **Error Handling**: Comprehensive error responses with MCP compliance
 
-2. **Cloud-Based Integration Platforms**
-   - Privacy concerns with external data processing
-   - Subscription costs and vendor lock-in
-   - Limited customization options
-   - Dependency on external services
+### Service Module Pattern
+- **Modular Design**: Each Google service as independent module
+- **Consistent Interface**: Uniform patterns across Calendar, Gmail, Drive
+- **Lazy Loading**: Services initialized only when needed
+- **Type Safety**: Full TypeScript implementation with strict typing
 
-3. **Google Apps Script**
-   - Limited to Google ecosystem
-   - JavaScript-only implementation
-   - No local development environment
-   - Restricted execution environment
+### Security and Privacy
+- **Local Processing**: All data processing happens on your local machine
+- **No External Dependencies**: No cloud services or external data sharing
+- **Encrypted Token Storage**: OAuth tokens stored securely with system keychain
+- **File Type Restrictions**: PDF/DOCX only processing for security
+- **Input Validation**: Comprehensive validation of all inputs and parameters
 
-### Our Advantages
-- **Local-First**: Complete privacy and data control
-- **AI-Optimized**: Designed specifically for AI agent integration
-- **Comprehensive**: All major Google services in unified interface
-- **Open Source**: Full transparency and customization capability
-- **Type Safe**: TypeScript implementation with strict typing
-- **MCP Native**: Built for the Model Context Protocol standard
+## Current Limitations
 
-## Success Metrics
+### Services Not Yet Implemented
+- **Google Docs**: Document creation and editing (planned for Phase 5)
+- **Google Sheets**: Spreadsheet manipulation (planned for Phase 6)
 
-### User Adoption
-- Successful integration with popular AI assistants (Claude Desktop, etc.)
-- Active usage by developers building personal productivity tools
-- Community contributions and extensions
-- Positive feedback on ease of setup and use
+### File Processing Limitations
+- **File Types**: Currently limited to PDF and DOCX for security reasons
+- **File Size**: Large files may have processing timeouts (configurable)
 
-### Technical Excellence
-- Zero critical security vulnerabilities
-- High performance with sub-300ms response times
-- Comprehensive test coverage (>90%)
-- Clean, maintainable codebase with TypeScript strict mode
+### API Limitations
+- **Rate Limits**: Subject to Google API quotas and rate limits
+- **Scope Requirements**: Some operations require specific OAuth scopes
 
-### Ecosystem Impact
-- Adoption by other MCP server developers as reference implementation
-- Integration into AI agent frameworks and platforms
-- Community-driven extensions for additional Google services
-- Documentation and tutorials used by broader developer community
+## Future Enhancements
 
-## Future Vision
+### Planned Features (Phase 5-6)
+- **Google Docs Integration**: Document creation, editing, and collaboration
+- **Google Sheets Integration**: Spreadsheet manipulation and data analysis
+- **Cross-Service Workflows**: Advanced automation between services
 
-### Short Term (6 months)
-- Complete implementation of core Google services
-- Stable MCP protocol compliance
-- Comprehensive documentation and examples
-- Active community of early adopters
+### Production Hardening (Phase 7)
+- **Performance Optimization**: Caching and response time improvements
+- **Advanced Monitoring**: Detailed logging and metrics collection
+- **Rate Limiting**: Intelligent Google API quota management
+- **Circuit Breaker**: Failure isolation and recovery mechanisms
 
-### Medium Term (1 year)
-- Plugin architecture for third-party extensions
-- Advanced workflow automation capabilities
-- Integration with additional AI platforms
-- Enterprise features for organizational deployment
+## Integration with AI Agents
 
-### Long Term (2+ years)
-- Reference implementation for privacy-first AI integrations
-- Ecosystem of community-built extensions
-- Advanced analytics and productivity insights
-- Multi-platform support (mobile, web, desktop)
+### Claude Desktop Integration
+- **Seamless Setup**: Works out-of-the-box with Claude Desktop MCP configuration
+- **Auto-Authentication**: Handles OAuth flow automatically when tools are called
+- **Response Optimization**: Optimized for Claude Desktop's streaming capabilities
+- **Error Guidance**: Clear error messages and troubleshooting help
 
-## Design Principles
+### MCP Client Compatibility
+- **Standard Protocol**: Compatible with any MCP-compliant client
+- **Tool Discovery**: Automatic tool discovery and schema validation
+- **Resource Management**: Prepared for future resource-based features
 
-### Privacy by Design
-- Local-first architecture with no external dependencies
-- Minimal data collection and no telemetry
-- User control over all credentials and permissions
-- Transparent data flows and processing
+## Privacy and Security Considerations
 
-### Developer Experience
-- Clear, consistent APIs with comprehensive documentation
-- Type-safe interfaces with full TypeScript support
-- Minimal configuration and setup requirements
-- Extensive examples and tutorials
+### Data Privacy
+- **Local-Only Processing**: No data leaves your local machine
+- **No Telemetry**: No usage tracking or external reporting
+- **User-Controlled**: You maintain complete control over your data and credentials
 
-### Extensibility
-- Modular architecture supporting new Google services
-- Plugin system for community contributions
-- Clean separation of concerns for easy maintenance
-- Stable APIs for long-term compatibility
+### Security Measures
+- **OAuth 2.0 + PKCE**: Secure authentication with Google services
+- **Encrypted Storage**: All tokens encrypted with system-specific keys
+- **File Type Validation**: Only safe file types (PDF/DOCX) processed
+- **Input Sanitization**: Comprehensive validation of all inputs
 
-### Security First
-- OAuth 2.0 with PKCE for secure authentication
-- Encrypted local storage for sensitive data
-- Minimal scope requests and permission validation
-- Regular security audits and updates
+### Compliance
+- **Personal Use**: Designed for individual, personal Google account access
+- **No Data Retention**: No persistent storage of user data
+- **Transparent Operation**: All operations logged for user visibility
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+ runtime environment
+- Personal Google account with API access
+- Google Cloud project with OAuth credentials
+
+### Quick Setup
+1. **Install Dependencies**: `npm install`
+2. **Configure Environment**: Set up `.env` with Google OAuth credentials
+3. **Start Server**: `npm run dev` for development
+4. **Authenticate**: OAuth flow triggers automatically on first tool use
+
+### Integration with Claude Desktop
+```json
+{
+  "mcpServers": {
+    "google-mcp-server": {
+      "command": "node",
+      "args": ["/path/to/mcp-google/dist/index.js"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "your_client_id",
+        "GOOGLE_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+## Project Status Summary
+
+The Google MCP Server has successfully implemented a production-ready foundation with 10 tools across 3 Google services. The incremental approach (Calendar → Gmail → Drive) has validated the architecture and established proven patterns for rapid service addition. Key achievements include:
+
+- **Proven Architecture**: Service module pattern scales effectively across multiple Google services
+- **Production Features**: Auto-authentication, error handling, and security policies implemented
+- **Document Processing**: Advanced PDF/DOCX parsing with security-focused policies
+- **AI Integration**: Optimized for Claude Desktop and other MCP clients
+
+The system is ready for either Docs integration (Phase 5) or production hardening (Phase 7), with all core infrastructure working reliably and patterns established for confident expansion.

@@ -27,6 +27,17 @@
   - Token management and refresh capabilities
   - Secure credential handling
 
+#### Document Processing
+- **pdf-parse**: Version 1.1.1+ for PDF text extraction
+  - Extracts text content from PDF files
+  - Handles various PDF formats and encodings
+  - Used in Drive file processing and Gmail attachments
+
+- **mammoth**: Version 1.6.0+ for DOCX content extraction
+  - Converts DOCX files to HTML/text
+  - Preserves document structure and formatting
+  - Used in Drive file processing and Gmail attachments
+
 #### Validation and Configuration
 - **zod**: Version 3.25.71+ for runtime schema validation
   - Type-safe configuration validation
@@ -153,14 +164,52 @@ cp .env.example .env
 ### OAuth Scopes
 ```typescript
 const GOOGLE_SCOPES = {
+  // Calendar API scopes
+  CALENDAR: 'https://www.googleapis.com/auth/calendar',
+  
+  // Gmail API scopes  
   GMAIL_READONLY: 'https://www.googleapis.com/auth/gmail.readonly',
   GMAIL_SEND: 'https://www.googleapis.com/auth/gmail.send',
+  GMAIL_LABELS: 'https://www.googleapis.com/auth/gmail.labels',
+  
+  // Drive API scopes
   DRIVE: 'https://www.googleapis.com/auth/drive',
-  CALENDAR: 'https://www.googleapis.com/auth/calendar',
+  DRIVE_FILE: 'https://www.googleapis.com/auth/drive.file',
+  
+  // Docs API scopes (planned)
   DOCS: 'https://www.googleapis.com/auth/documents',
+  
+  // Sheets API scopes (planned)
   SHEETS: 'https://www.googleapis.com/auth/spreadsheets',
 } as const;
 ```
+
+### Currently Implemented Services
+
+#### Calendar API Integration ✅
+- **Scopes**: `calendar` (read/write access to calendars)
+- **Tools**: 2 tools implemented
+  - `calendar_list_events`: List calendar events with filtering
+  - `calendar_create_event`: Create events with attendees and reminders
+- **Features**: Timezone support, reminder configuration, attendee management
+
+#### Gmail API Integration ✅  
+- **Scopes**: `gmail.readonly`, `gmail.send`, `gmail.labels`
+- **Tools**: 4 tools implemented
+  - `gmail_list_messages`: List emails with filtering
+  - `gmail_get_message`: Read email content and metadata
+  - `gmail_search_messages`: Advanced Gmail query syntax
+  - `gmail_download_attachment`: Secure PDF/DOCX only downloads
+- **Features**: Email content parsing, attachment handling, security policies
+
+#### Drive API Integration ✅
+- **Scopes**: `drive` (full access to Drive files)
+- **Tools**: 4 tools implemented
+  - `drive_list_files`: List files and folders with metadata
+  - `drive_get_file`: Get file content with PDF/DOCX parsing
+  - `drive_upload_file`: Upload files with metadata and sharing
+  - `drive_create_folder`: Create organized folder structures
+- **Features**: Document processing, metadata extraction, file sharing
 
 ### API Rate Limits
 - **Gmail API**: 1 billion quota units per day, 250 quota units per user per second
@@ -236,17 +285,26 @@ GOOGLE_REDIRECT_URI=http://localhost:8080/auth/callback
 NODE_ENV=development
 MCP_LOG_LEVEL=INFO
 
-# Optional - Feature Flags
-FEATURE_CALENDAR=true
-FEATURE_GMAIL=true
-FEATURE_DRIVE=true
-FEATURE_DOCS=false
-FEATURE_SHEETS=false
+# Optional - Feature Flags (Current Implementation Status)
+FEATURE_CALENDAR=true    # ✅ Implemented
+FEATURE_GMAIL=true       # ✅ Implemented  
+FEATURE_DRIVE=true       # ✅ Implemented
+FEATURE_DOCS=false       # 🔄 Partially implemented
+FEATURE_SHEETS=false     # 📋 Planned
 
 # Optional - Performance Tuning
 MCP_CACHE_ENABLED=true
 MCP_RATE_LIMIT_REQUESTS=100
 MCP_RATE_LIMIT_WINDOW_MS=60000
+```
+
+### Document Processing Configuration
+```env
+# Document processing settings
+MAX_FILE_SIZE_MB=50              # Maximum file size for processing
+ALLOWED_FILE_TYPES=pdf,docx      # Security policy: PDF and DOCX only
+WORKER_TIMEOUT_MS=30000          # Timeout for document processing
+ENABLE_CONTENT_EXTRACTION=true   # Enable PDF/DOCX content extraction
 ```
 
 ### Configuration Validation
@@ -342,6 +400,13 @@ module.exports = {
 - **Secure Transmission**: HTTPS for all API communications
 - **Input Validation**: Comprehensive input sanitization
 
+### Document Processing Security
+- **File Type Restrictions**: PDF and DOCX only (security policy)
+- **Content Sanitization**: Safe text extraction without executable content
+- **Size Limits**: Maximum file size limits to prevent resource exhaustion
+- **Worker Isolation**: Document processing in isolated workers
+- **Timeout Protection**: Processing timeouts prevent hanging operations
+
 ## Deployment Considerations
 
 ### Local Development
@@ -380,6 +445,64 @@ npm run start
       }
     }
   }
+}
+```
+
+## Current Implementation Status
+
+### Implemented Tools (10 total)
+
+#### Calendar Tools (2)
+- `calendar_list_events`: List calendar events with filtering and timezone support
+- `calendar_create_event`: Create events with attendees, reminders, timezone handling
+
+#### Gmail Tools (4)  
+- `gmail_list_messages`: List emails with filtering (date, sender, labels)
+- `gmail_get_message`: Read email content with thread support
+- `gmail_search_messages`: Advanced Gmail query syntax support
+- `gmail_download_attachment`: Secure PDF/DOCX only attachment downloads
+
+#### Drive Tools (4)
+- `drive_list_files`: List files and folders with metadata
+- `drive_get_file`: Get file content with PDF/DOCX parsing
+- `drive_upload_file`: Upload files with metadata and sharing options
+- `drive_create_folder`: Create organized folder structures
+
+### Document Processing Implementation
+
+#### PDF Processing
+```typescript
+// PDF text extraction using pdf-parse
+import pdfParse from 'pdf-parse';
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const data = await pdfParse(buffer);
+  return data.text;
+}
+```
+
+#### DOCX Processing  
+```typescript
+// DOCX content extraction using mammoth
+import mammoth from 'mammoth';
+
+async function extractDocxContent(buffer: Buffer): Promise<string> {
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value;
+}
+```
+
+#### Security Policy Implementation
+```typescript
+// File type validation for security
+const ALLOWED_FILE_TYPES = ['pdf', 'docx'] as const;
+
+function validateFileType(mimeType: string): boolean {
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  return allowedMimeTypes.includes(mimeType);
 }
 ```
 
