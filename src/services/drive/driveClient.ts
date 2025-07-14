@@ -333,6 +333,56 @@ export class DriveClient {
   }
 
   /**
+   * Move a file to a different folder in Drive
+   * @param fileId - ID of the file to move
+   * @param targetFolderId - ID of the target folder
+   * @param newName - Optional new name for the file
+   * @returns Promise resolving to the moved file
+   * @throws {CalendarError} If the request fails
+   */
+  async moveFile(fileId: string, targetFolderId: string, newName?: string): Promise<DriveFile> {
+    try {
+      const drive = await this.ensureInitialized();
+
+      // First get the current file to get its current parents
+      const currentFile = await drive.files.get({
+        fileId,
+        fields: 'parents,name'
+      });
+
+      if (!currentFile.data) {
+        throw new Error('File not found');
+      }
+
+      const previousParents = currentFile.data.parents?.join(',') || '';
+
+      // Prepare update metadata
+      const updateMetadata: drive_v3.Schema$File = {};
+      if (newName) {
+        updateMetadata.name = newName;
+      }
+
+      // Move the file by updating parents
+      const response = await drive.files.update({
+        fileId,
+        addParents: targetFolderId,
+        removeParents: previousParents,
+        requestBody: updateMetadata,
+        fields: 'id,name,mimeType,size,modifiedTime,createdTime,parents,webViewLink'
+      });
+
+      if (!response.data) {
+        throw new Error('No data returned from Drive API');
+      }
+
+      return this.convertToDriveFile(response.data);
+
+    } catch (error) {
+      throw this.handleApiError(error, 'move file');
+    }
+  }
+
+  /**
    * Convert Drive API file to our DriveFile format
    * @param driveFile - Drive API file object
    * @returns DriveFile in our format

@@ -9,3 +9,4 @@ export { driveListFilesTool } from './listFiles';
 export { driveGetFileTool } from './getFile';
 export { driveUploadFileTool } from './uploadFile';
 export { driveCreateFolderTool } from './createFolder';
+export { driveMoveFileTool } from './moveFile';

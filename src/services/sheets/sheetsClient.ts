@@ -66,6 +66,32 @@ export interface SheetsUpdateParams {
 }
 
 /**
+ * Parameters for getting data from a spreadsheet
+ */
+export interface SheetsGetDataParams {
+  spreadsheetId: string;
+  range?: string;
+  sheetName?: string;
+  valueRenderOption?: 'FORMATTED_VALUE' | 'UNFORMATTED_VALUE' | 'FORMULA';
+  includeMetadata?: boolean;
+}
+
+/**
+ * Response from getting spreadsheet data
+ */
+export interface SheetsDataResponse {
+  values: any[][];
+  range: string;
+  majorDimension: string;
+  metadata?: {
+    spreadsheetTitle: string;
+    sheetTitle: string;
+    rowCount: number;
+    columnCount: number;
+  };
+}
+
+/**
  * Sheets API Client
  * 
  * Provides type-safe access to Google Sheets API with integrated OAuth
@@ -123,6 +149,154 @@ export class SheetsClient {
     }
     
     return this.sheets;
+  }
+
+  /**
+   * Get data from a Google Sheets spreadsheet
+   * @param params - Parameters for getting data
+   * @returns Promise resolving to the spreadsheet data
+   * @throws {CalendarError} If the request fails
+   */
+  async getData(params: SheetsGetDataParams): Promise<SheetsDataResponse> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Validate required parameters
+      this.validateGetDataParams(params);
+
+      console.error(`Getting data from spreadsheet: ${params.spreadsheetId}`);
+
+      // Build the range string
+      let range = params.range || 'A1:Z1000';
+      if (params.sheetName) {
+        // If sheet name is provided, prepend it to the range
+        range = `${params.sheetName}!${range}`;
+      }
+
+      // Make API request to get data
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: params.spreadsheetId,
+        range: range,
+        valueRenderOption: params.valueRenderOption || 'FORMATTED_VALUE',
+        majorDimension: 'ROWS'
+      });
+
+      if (!response.data) {
+        throw new Error('No data returned from Sheets API');
+      }
+
+      // Prepare the response
+      const dataResponse: SheetsDataResponse = {
+        values: response.data.values || [],
+        range: response.data.range || range,
+        majorDimension: response.data.majorDimension || 'ROWS'
+      };
+
+      // Add metadata if requested
+      if (params.includeMetadata !== false) {
+        try {
+          const metadata = await this.getSpreadsheetMetadata(params.spreadsheetId, params.sheetName);
+          dataResponse.metadata = metadata;
+        } catch (error) {
+          console.error('Failed to get metadata:', error);
+          // Continue without metadata rather than failing the entire request
+        }
+      }
+
+      const rowCount = dataResponse.values.length;
+      const colCount = rowCount > 0 ? Math.max(...dataResponse.values.map(row => row.length)) : 0;
+      console.error(`Successfully retrieved data: ${rowCount} rows, ${colCount} columns`);
+      
+      return dataResponse;
+
+    } catch (error) {
+      throw this.handleApiError(error, 'get data');
+    }
+  }
+
+  /**
+   * Get spreadsheet metadata for the response
+   * @param spreadsheetId - The ID of the spreadsheet
+   * @param sheetName - Optional specific sheet name
+   * @returns Metadata object
+   */
+  private async getSpreadsheetMetadata(spreadsheetId: string, sheetName?: string): Promise<{
+    spreadsheetTitle: string;
+    sheetTitle: string;
+    rowCount: number;
+    columnCount: number;
+  }> {
+    const sheets = await this.ensureInitialized();
+    
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'properties.title,sheets.properties'
+    });
+
+    if (!response.data) {
+      throw new Error('No metadata returned from Sheets API');
+    }
+
+    const spreadsheetTitle = response.data.properties?.title || 'Untitled Spreadsheet';
+    
+    // Find the target sheet
+    let targetSheet = response.data.sheets?.[0]; // Default to first sheet
+    if (sheetName && response.data.sheets) {
+      const foundSheet = response.data.sheets.find(sheet => 
+        sheet.properties?.title === sheetName
+      );
+      if (foundSheet) {
+        targetSheet = foundSheet;
+      }
+    }
+
+    const sheetTitle = targetSheet?.properties?.title || 'Sheet1';
+    const rowCount = targetSheet?.properties?.gridProperties?.rowCount || 1000;
+    const columnCount = targetSheet?.properties?.gridProperties?.columnCount || 26;
+
+    return {
+      spreadsheetTitle,
+      sheetTitle,
+      rowCount,
+      columnCount
+    };
+  }
+
+  /**
+   * Validate parameters for getting data
+   * @param params - Parameters to validate
+   * @throws {CalendarError} If validation fails
+   */
+  private validateGetDataParams(params: SheetsGetDataParams): void {
+    if (!params.spreadsheetId?.trim()) {
+      throw new CalendarError('Spreadsheet ID is required', MCPErrorCode.ValidationError);
+    }
+
+    // Validate range format if provided
+    if (params.range) {
+      const range = params.range.trim();
+      // Basic A1 notation validation - allow single cells, ranges, or full columns/rows
+      if (!/^[A-Z]+[0-9]*:[A-Z]+[0-9]*$|^[A-Z]+[0-9]+$|^[A-Z]+:[A-Z]+$|^[0-9]+:[0-9]+$/.test(range)) {
+        throw new CalendarError(
+          'Invalid range format. Use A1 notation (e.g., A1:B2, A1, A:B, 1:5)',
+          MCPErrorCode.ValidationError
+        );
+      }
+    }
+
+    // Validate sheet name if provided
+    if (params.sheetName && !params.sheetName.trim()) {
+      throw new CalendarError('Sheet name cannot be empty if provided', MCPErrorCode.ValidationError);
+    }
+
+    // Validate value render option
+    if (params.valueRenderOption && 
+        !['FORMATTED_VALUE', 'UNFORMATTED_VALUE', 'FORMULA'].includes(params.valueRenderOption)) {
+      throw new CalendarError(
+        'Value render option must be FORMATTED_VALUE, UNFORMATTED_VALUE, or FORMULA',
+        MCPErrorCode.ValidationError
+      );
+    }
   }
 
   /**

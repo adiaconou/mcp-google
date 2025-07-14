@@ -29,10 +29,11 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
+import { ToolHandler } from './types/mcp';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
-import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool } from './services/drive/tools/index';
-import { createSpreadsheetSchema, createSpreadsheet, updateCellsSchema, updateCells } from './services/sheets/tools/index';
+import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool, driveMoveFileTool } from './services/drive/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -310,6 +311,7 @@ export class GoogleMCPServer {
     toolRegistry.register(driveGetFileTool);          // Get Drive file metadata and content
     toolRegistry.register(driveUploadFileTool);       // Upload files to Drive
     toolRegistry.register(driveCreateFolderTool);     // Create folders in Drive
+    toolRegistry.register(driveMoveFileTool);         // Move files between folders
     
     // Register Google Sheets tools for spreadsheet management
     toolRegistry.register({
@@ -317,6 +319,23 @@ export class GoogleMCPServer {
       description: createSpreadsheetSchema.description,
       inputSchema: createSpreadsheetSchema.inputSchema,
       handler: createSpreadsheet
+    });
+    toolRegistry.register({
+      name: getDataSchema.name,
+      description: getDataSchema.description,
+      inputSchema: getDataSchema.inputSchema,
+      handler: async (params: unknown) => {
+        const result = await getData(params as any);
+        return {
+          content: [{
+            type: 'text' as const,
+            text: result.success 
+              ? JSON.stringify(result.data, null, 2)
+              : `Error: ${result.error}`
+          }],
+          isError: !result.success
+        };
+      }
     });
     toolRegistry.register({
       name: updateCellsSchema.name,

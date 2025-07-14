@@ -6,4 +6,5 @@
  */
 
 export { createSpreadsheet, createSpreadsheetSchema } from './createSpreadsheet';
+export { getData, getDataSchema } from './getData';
 export { updateCells, updateCellsSchema } from './updateCells';
