@@ -29,11 +29,10 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
-import { ToolHandler } from './types/mcp';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool, driveMoveFileTool } from './services/drive/tools/index';
-import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells } from './services/sheets/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -342,6 +341,12 @@ export class GoogleMCPServer {
       description: updateCellsSchema.description,
       inputSchema: updateCellsSchema.inputSchema,
       handler: updateCells
+    });
+    toolRegistry.register({
+      name: formatCellsSchema.name,
+      description: formatCellsSchema.description,
+      inputSchema: formatCellsSchema.inputSchema,
+      handler: formatCells
     });
   }
 

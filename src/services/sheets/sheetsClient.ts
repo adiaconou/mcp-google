@@ -77,6 +77,41 @@ export interface SheetsGetDataParams {
 }
 
 /**
+ * Parameters for formatting cells in a spreadsheet
+ */
+export interface SheetsFormatParams {
+  spreadsheetId: string;
+  range: string;
+  // Basic styling
+  backgroundColor?: string;
+  fontColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  fontSize?: number;
+  textAlignment?: 'LEFT' | 'CENTER' | 'RIGHT';
+  // Data organization
+  addFilter?: boolean;
+  sortBy?: {
+    column: number;
+    ascending?: boolean;
+  };
+  freezeRows?: number;
+  freezeColumns?: number;
+  // Conditional formatting
+  conditionalFormat?: {
+    condition: 'GREATER_THAN' | 'LESS_THAN' | 'EQUAL' | 'BETWEEN';
+    value: number;
+    value2?: number;
+    backgroundColor: string;
+  };
+  // Number formatting
+  numberFormat?: {
+    type: 'CURRENCY' | 'PERCENT' | 'DATE' | 'NUMBER';
+    decimalPlaces?: number;
+  };
+}
+
+/**
  * Response from getting spreadsheet data
  */
 export interface SheetsDataResponse {
@@ -354,6 +389,158 @@ export class SheetsClient {
 
     } catch (error) {
       throw this.handleApiError(error, 'update cells');
+    }
+  }
+
+  /**
+   * Format cells in a Google Sheets spreadsheet
+   * @param params - Parameters for formatting cells
+   * @returns Promise resolving when formatting is complete
+   * @throws {CalendarError} If the request fails
+   */
+  async formatCells(params: SheetsFormatParams): Promise<{ formattedRanges: number; appliedFormats: string[] }> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Validate required parameters
+      this.validateFormatCellsParams(params);
+
+      console.error(`Formatting cells in spreadsheet: ${params.spreadsheetId}`);
+
+      // Build batch update requests
+      const requests: sheets_v4.Schema$Request[] = [];
+      const appliedFormats: string[] = [];
+
+      // Get sheet ID for the range
+      const sheetId = await this.getSheetIdFromRange(params.spreadsheetId, params.range);
+
+      // Parse range to get grid range
+      const gridRange = this.parseRangeToGridRange(params.range, sheetId);
+
+      // Add basic styling requests
+      if (params.backgroundColor || params.fontColor || params.bold !== undefined || 
+          params.italic !== undefined || params.fontSize || params.textAlignment) {
+        
+        const cellFormat: sheets_v4.Schema$CellFormat = {};
+        
+        if (params.backgroundColor || params.fontColor) {
+          if (params.backgroundColor) {
+            cellFormat.backgroundColor = this.hexToColor(params.backgroundColor);
+          }
+          cellFormat.textFormat = cellFormat.textFormat || {};
+          if (params.fontColor) {
+            cellFormat.textFormat.foregroundColor = this.hexToColor(params.fontColor);
+          }
+        }
+
+        if (params.bold !== undefined || params.italic !== undefined || params.fontSize) {
+          cellFormat.textFormat = cellFormat.textFormat || {};
+          if (params.bold !== undefined) cellFormat.textFormat.bold = params.bold;
+          if (params.italic !== undefined) cellFormat.textFormat.italic = params.italic;
+          if (params.fontSize) cellFormat.textFormat.fontSize = params.fontSize;
+        }
+
+        if (params.textAlignment) {
+          cellFormat.horizontalAlignment = params.textAlignment;
+        }
+
+        requests.push({
+          repeatCell: {
+            range: gridRange,
+            cell: { userEnteredFormat: cellFormat },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+          }
+        });
+        appliedFormats.push('basic styling');
+      }
+
+      // Add number formatting
+      if (params.numberFormat) {
+        const numberFormat = this.buildNumberFormat(params.numberFormat);
+        requests.push({
+          repeatCell: {
+            range: gridRange,
+            cell: { userEnteredFormat: { numberFormat } },
+            fields: 'userEnteredFormat.numberFormat'
+          }
+        });
+        appliedFormats.push('number formatting');
+      }
+
+      // Add filter
+      if (params.addFilter) {
+        requests.push({
+          setBasicFilter: {
+            filter: {
+              range: gridRange
+            }
+          }
+        });
+        appliedFormats.push('filter');
+      }
+
+      // Add sorting
+      if (params.sortBy) {
+        requests.push({
+          sortRange: {
+            range: gridRange,
+            sortSpecs: [{
+              dimensionIndex: params.sortBy.column,
+              sortOrder: params.sortBy.ascending !== false ? 'ASCENDING' : 'DESCENDING'
+            }]
+          }
+        });
+        appliedFormats.push('sorting');
+      }
+
+      // Add freeze rows/columns
+      if (params.freezeRows !== undefined || params.freezeColumns !== undefined) {
+        requests.push({
+          updateSheetProperties: {
+            properties: {
+              sheetId: sheetId,
+              gridProperties: {
+                frozenRowCount: params.freezeRows || 0,
+                frozenColumnCount: params.freezeColumns || 0
+              }
+            },
+            fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount'
+          }
+        });
+        appliedFormats.push('freeze panes');
+      }
+
+      // Add conditional formatting
+      if (params.conditionalFormat) {
+        const conditionalFormatRule = this.buildConditionalFormatRule(params.conditionalFormat, gridRange);
+        requests.push({
+          addConditionalFormatRule: {
+            rule: conditionalFormatRule,
+            index: 0
+          }
+        });
+        appliedFormats.push('conditional formatting');
+      }
+
+      // Execute batch update
+      if (requests.length > 0) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: params.spreadsheetId,
+          requestBody: {
+            requests: requests
+          }
+        });
+      }
+
+      console.error(`Successfully applied ${appliedFormats.length} formatting operations`);
+      
+      return {
+        formattedRanges: 1,
+        appliedFormats: appliedFormats
+      };
+
+    } catch (error) {
+      throw this.handleApiError(error, 'format cells');
     }
   }
 
@@ -675,6 +862,274 @@ export class SheetsClient {
         }
       }
     }
+  }
+
+  /**
+   * Validate parameters for formatting cells
+   * @param params - Parameters to validate
+   * @throws {CalendarError} If validation fails
+   */
+  private validateFormatCellsParams(params: SheetsFormatParams): void {
+    if (!params.spreadsheetId?.trim()) {
+      throw new CalendarError('Spreadsheet ID is required', MCPErrorCode.ValidationError);
+    }
+
+    if (!params.range?.trim()) {
+      throw new CalendarError('Range is required', MCPErrorCode.ValidationError);
+    }
+
+    // Validate range format
+    const range = params.range.trim();
+    if (!/^[A-Z]+[0-9]*:[A-Z]+[0-9]*$|^[A-Z]+[0-9]+$/.test(range)) {
+      throw new CalendarError(
+        'Invalid range format. Use A1 notation (e.g., A1:B2, A1:Z100)',
+        MCPErrorCode.ValidationError
+      );
+    }
+
+    // Validate hex colors if provided
+    if (params.backgroundColor && !this.isValidHexColor(params.backgroundColor)) {
+      throw new CalendarError('Background color must be a valid hex color (e.g., #FF0000)', MCPErrorCode.ValidationError);
+    }
+
+    if (params.fontColor && !this.isValidHexColor(params.fontColor)) {
+      throw new CalendarError('Font color must be a valid hex color (e.g., #000000)', MCPErrorCode.ValidationError);
+    }
+
+    // Validate font size
+    if (params.fontSize && (params.fontSize < 6 || params.fontSize > 400)) {
+      throw new CalendarError('Font size must be between 6 and 400', MCPErrorCode.ValidationError);
+    }
+
+    // Validate sort column
+    if (params.sortBy && (params.sortBy.column < 0 || params.sortBy.column > 25)) {
+      throw new CalendarError('Sort column must be between 0 and 25 (A-Z)', MCPErrorCode.ValidationError);
+    }
+
+    // Validate freeze counts
+    if (params.freezeRows && (params.freezeRows < 0 || params.freezeRows > 100)) {
+      throw new CalendarError('Freeze rows must be between 0 and 100', MCPErrorCode.ValidationError);
+    }
+
+    if (params.freezeColumns && (params.freezeColumns < 0 || params.freezeColumns > 26)) {
+      throw new CalendarError('Freeze columns must be between 0 and 26', MCPErrorCode.ValidationError);
+    }
+
+    // Validate conditional formatting
+    if (params.conditionalFormat) {
+      if (!params.conditionalFormat.backgroundColor || !this.isValidHexColor(params.conditionalFormat.backgroundColor)) {
+        throw new CalendarError('Conditional format background color must be a valid hex color', MCPErrorCode.ValidationError);
+      }
+    }
+  }
+
+  /**
+   * Get sheet ID from a range string
+   * @param spreadsheetId - The spreadsheet ID
+   * @param range - The range string (may include sheet name)
+   * @returns Promise resolving to the sheet ID
+   */
+  private async getSheetIdFromRange(spreadsheetId: string, range: string): Promise<number> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Check if range includes sheet name (e.g., "Sheet1!A1:B2")
+      let sheetName = 'Sheet1'; // Default
+      if (range.includes('!')) {
+        sheetName = range.split('!')[0];
+      }
+
+      // Get spreadsheet metadata to find sheet ID
+      const response = await sheets.spreadsheets.get({
+        spreadsheetId,
+        fields: 'sheets.properties'
+      });
+
+      if (!response.data?.sheets) {
+        throw new Error('No sheets found in spreadsheet');
+      }
+
+      // Find the sheet by name
+      const sheet = response.data.sheets.find(s => s.properties?.title === sheetName);
+      if (!sheet?.properties?.sheetId) {
+        throw new Error(`Sheet "${sheetName}" not found`);
+      }
+
+      return sheet.properties.sheetId;
+    } catch (error) {
+      throw new CalendarError(`Failed to get sheet ID: ${error instanceof Error ? error.message : 'Unknown error'}`, MCPErrorCode.APIError);
+    }
+  }
+
+  /**
+   * Parse A1 notation range to GridRange object
+   * @param range - A1 notation range (e.g., "A1:B2" or "Sheet1!A1:B2")
+   * @param sheetId - The sheet ID
+   * @returns GridRange object
+   */
+  private parseRangeToGridRange(range: string, sheetId: number): sheets_v4.Schema$GridRange {
+    // Remove sheet name if present
+    const rangeOnly = range.includes('!') ? range.split('!')[1] : range;
+    
+    // Parse range like "A1:B2" or "A1"
+    const parts = rangeOnly.split(':');
+    const startCell = parts[0];
+    const endCell = parts[1] || startCell;
+
+    // Parse start cell
+    const startMatch = startCell.match(/^([A-Z]+)([0-9]+)$/);
+    if (!startMatch) {
+      throw new CalendarError('Invalid range format', MCPErrorCode.ValidationError);
+    }
+
+    const startCol = this.columnLettersToIndex(startMatch[1]);
+    const startRow = parseInt(startMatch[2]) - 1; // Convert to 0-based
+
+    // Parse end cell
+    const endMatch = endCell.match(/^([A-Z]+)([0-9]+)$/);
+    if (!endMatch) {
+      throw new CalendarError('Invalid range format', MCPErrorCode.ValidationError);
+    }
+
+    const endCol = this.columnLettersToIndex(endMatch[1]) + 1; // End is exclusive
+    const endRow = parseInt(endMatch[2]); // End is exclusive, so no -1
+
+    return {
+      sheetId,
+      startRowIndex: startRow,
+      endRowIndex: endRow,
+      startColumnIndex: startCol,
+      endColumnIndex: endCol
+    };
+  }
+
+  /**
+   * Convert column letters to index (A=0, B=1, etc.)
+   * @param letters - Column letters (e.g., "A", "AB")
+   * @returns Column index
+   */
+  private columnLettersToIndex(letters: string): number {
+    let result = 0;
+    for (let i = 0; i < letters.length; i++) {
+      result = result * 26 + (letters.charCodeAt(i) - 65 + 1);
+    }
+    return result - 1; // Convert to 0-based
+  }
+
+  /**
+   * Convert hex color to Google Sheets Color object
+   * @param hex - Hex color string (e.g., "#FF0000")
+   * @returns Color object
+   */
+  private hexToColor(hex: string): sheets_v4.Schema$Color {
+    // Remove # if present
+    const cleanHex = hex.replace('#', '');
+    
+    // Parse RGB values
+    const r = parseInt(cleanHex.substr(0, 2), 16) / 255;
+    const g = parseInt(cleanHex.substr(2, 2), 16) / 255;
+    const b = parseInt(cleanHex.substr(4, 2), 16) / 255;
+
+    return { red: r, green: g, blue: b };
+  }
+
+  /**
+   * Build number format object
+   * @param format - Number format parameters
+   * @returns NumberFormat object
+   */
+  private buildNumberFormat(format: { type: string; decimalPlaces?: number }): sheets_v4.Schema$NumberFormat {
+    const decimalPlaces = format.decimalPlaces ?? 2;
+
+    switch (format.type) {
+      case 'CURRENCY':
+        return {
+          type: 'CURRENCY',
+          pattern: `$#,##0.${'0'.repeat(decimalPlaces)}`
+        };
+      case 'PERCENT':
+        return {
+          type: 'PERCENT',
+          pattern: `0.${'0'.repeat(decimalPlaces)}%`
+        };
+      case 'DATE':
+        return {
+          type: 'DATE',
+          pattern: 'M/d/yyyy'
+        };
+      case 'NUMBER':
+        return {
+          type: 'NUMBER',
+          pattern: `#,##0.${'0'.repeat(decimalPlaces)}`
+        };
+      default:
+        throw new CalendarError(`Unsupported number format type: ${format.type}`, MCPErrorCode.ValidationError);
+    }
+  }
+
+  /**
+   * Build conditional format rule
+   * @param condition - Conditional format parameters
+   * @param range - Grid range to apply to
+   * @returns ConditionalFormatRule object
+   */
+  private buildConditionalFormatRule(
+    condition: { condition: string; value: number; value2?: number; backgroundColor: string },
+    range: sheets_v4.Schema$GridRange
+  ): sheets_v4.Schema$ConditionalFormatRule {
+    let booleanRule: sheets_v4.Schema$BooleanRule;
+
+    switch (condition.condition) {
+      case 'GREATER_THAN':
+        booleanRule = {
+          condition: { type: 'NUMBER_GREATER', values: [{ userEnteredValue: condition.value.toString() }] },
+          format: { backgroundColor: this.hexToColor(condition.backgroundColor) }
+        };
+        break;
+      case 'LESS_THAN':
+        booleanRule = {
+          condition: { type: 'NUMBER_LESS', values: [{ userEnteredValue: condition.value.toString() }] },
+          format: { backgroundColor: this.hexToColor(condition.backgroundColor) }
+        };
+        break;
+      case 'EQUAL':
+        booleanRule = {
+          condition: { type: 'NUMBER_EQ', values: [{ userEnteredValue: condition.value.toString() }] },
+          format: { backgroundColor: this.hexToColor(condition.backgroundColor) }
+        };
+        break;
+      case 'BETWEEN':
+        if (condition.value2 === undefined) {
+          throw new CalendarError('value2 is required for BETWEEN condition', MCPErrorCode.ValidationError);
+        }
+        booleanRule = {
+          condition: { 
+            type: 'NUMBER_BETWEEN', 
+            values: [
+              { userEnteredValue: condition.value.toString() },
+              { userEnteredValue: condition.value2.toString() }
+            ]
+          },
+          format: { backgroundColor: this.hexToColor(condition.backgroundColor) }
+        };
+        break;
+      default:
+        throw new CalendarError(`Unsupported condition type: ${condition.condition}`, MCPErrorCode.ValidationError);
+    }
+
+    return {
+      ranges: [range],
+      booleanRule
+    };
+  }
+
+  /**
+   * Validate hex color format
+   * @param color - Color string to validate
+   * @returns True if valid hex color
+   */
+  private isValidHexColor(color: string): boolean {
+    return /^#[0-9A-Fa-f]{6}$/.test(color);
   }
 
   /**

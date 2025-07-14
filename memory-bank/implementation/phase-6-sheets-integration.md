@@ -35,7 +35,7 @@ Before starting Phase 6 implementation, the user must complete these setup tasks
 2. ☑ Implement `sheets_create_spreadsheet` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 3. ☑ Implement `sheets_get_data` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 4. ☑ Implement `sheets_update_cells` tool (with unit/integration tests and MCP registration) - **COMPLETED**
-5. ☐ Implement `sheets_format_cells` tool (with unit/integration tests and MCP registration)
+5. ☑ Implement `sheets_format_cells` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 6. ☐ Implement `sheets_calculate` tool (with unit/integration tests and MCP registration)
 7. ☐ Final integration and server registration (with comprehensive testing)
 
@@ -165,47 +165,72 @@ Before starting Phase 6 implementation, the user must complete these setup tasks
 ### Step 5: Create Sheets Format Cells Tool
 **Files**: `src/services/sheets/tools/formatCells.ts`
 - Add `formatCells` method to SheetsClient
-- Add cell formatting (fonts, colors, borders)
-- Support number formatting and data validation
-- Include conditional formatting rules
-- Add row and column formatting
+- Implement basic cell styling (fonts, colors, borders, alignment)
+- Add data organization features (filters, sorting, freeze panes)
+- Include simple conditional formatting with value-based rules
+- Support number formatting (currency, percentage, date formats)
 
 **Tool Schema**:
 ```typescript
 {
   name: "sheets_format_cells",
-  description: "Apply formatting to cells in Google Sheets",
+  description: "Apply formatting, filters, and sorting to Google Sheets",
   inputSchema: {
     type: "object",
     required: ["spreadsheetId", "range"],
     properties: {
       spreadsheetId: { type: "string" },
       range: { type: "string", description: "A1 notation range" },
-      format: {
+      // Basic styling
+      backgroundColor: { type: "string", description: "Hex color code (e.g., #FF0000)" },
+      fontColor: { type: "string", description: "Hex color code for text" },
+      bold: { type: "boolean" },
+      italic: { type: "boolean" },
+      fontSize: { type: "number" },
+      textAlignment: { 
+        type: "string", 
+        enum: ["LEFT", "CENTER", "RIGHT"],
+        description: "Horizontal text alignment"
+      },
+      // Data organization
+      addFilter: { type: "boolean", description: "Add filter to the range" },
+      sortBy: { 
+        type: "object", 
+        properties: { 
+          column: { type: "number", description: "Column index (0-based)" }, 
+          ascending: { type: "boolean", default: true }
+        },
+        description: "Sort data by specified column"
+      },
+      freezeRows: { type: "number", description: "Number of rows to freeze" },
+      freezeColumns: { type: "number", description: "Number of columns to freeze" },
+      // Conditional formatting
+      conditionalFormat: { 
+        type: "object", 
+        properties: { 
+          condition: { 
+            type: "string", 
+            enum: ["GREATER_THAN", "LESS_THAN", "EQUAL", "BETWEEN"],
+            description: "Condition type for highlighting"
+          },
+          value: { type: "number", description: "Comparison value" },
+          value2: { type: "number", description: "Second value for BETWEEN condition" },
+          backgroundColor: { type: "string", description: "Background color for matching cells" }
+        },
+        description: "Apply conditional formatting based on cell values"
+      },
+      // Number formatting
+      numberFormat: {
         type: "object",
         properties: {
-          backgroundColor: { type: "string" },
-          textFormat: {
-            type: "object",
-            properties: {
-              bold: { type: "boolean" },
-              italic: { type: "boolean" },
-              fontSize: { type: "number" },
-              foregroundColor: { type: "string" },
-              fontFamily: { type: "string" }
-            }
+          type: { 
+            type: "string", 
+            enum: ["CURRENCY", "PERCENT", "DATE", "NUMBER"],
+            description: "Number format type"
           },
-          numberFormat: {
-            type: "object",
-            properties: {
-              type: { 
-                type: "string", 
-                enum: ["TEXT", "NUMBER", "PERCENT", "CURRENCY", "DATE", "TIME"] 
-              },
-              pattern: { type: "string" }
-            }
-          }
-        }
+          decimalPlaces: { type: "number", description: "Number of decimal places" }
+        },
+        description: "Apply number formatting to cells"
       }
     }
   }
@@ -261,7 +286,7 @@ Before starting Phase 6 implementation, the user must complete these setup tasks
 - ☐ `sheets_create_spreadsheet` creates spreadsheets with proper structure
 - ☐ `sheets_get_data` retrieves and formats spreadsheet data correctly
 - ☐ `sheets_update_cells` modifies data while preserving formatting
-- ☐ `sheets_format_cells` applies styles correctly in Google Sheets
+- ☐ `sheets_format_cells` applies basic styling, filters, sorting, and conditional formatting correctly
 - ☐ `sheets_calculate` executes formulas and aggregations properly
 
 ### Technical Requirements
@@ -318,7 +343,7 @@ tests/integration/
 - **`sheets_create_spreadsheet`**: Create new spreadsheets with title, initial data, and sharing
 - **`sheets_get_data`**: Read spreadsheet data with range and formatting options
 - **`sheets_update_cells`**: Update cell values with batch operations and formula support
-- **`sheets_format_cells`**: Apply formatting (fonts, colors, borders, number formats)
+- **`sheets_format_cells`**: Apply formatting, filters, sorting, and conditional formatting (fonts, colors, borders, number formats, data organization)
 - **`sheets_calculate`**: Execute formulas and perform aggregations (SUM, AVERAGE, COUNT, etc.)
 
 ## Performance Targets
