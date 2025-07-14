@@ -6,3 +6,4 @@
  */
 
 export { createSpreadsheet, createSpreadsheetSchema } from './createSpreadsheet';
+export { updateCells, updateCellsSchema } from './updateCells';

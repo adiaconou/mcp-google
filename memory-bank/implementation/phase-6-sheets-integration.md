@@ -34,7 +34,7 @@ Before starting Phase 6 implementation, the user must complete these setup tasks
 1. ☑ Extend OAuth manager to support Sheets scopes (with tests)
 2. ☑ Implement `sheets_create_spreadsheet` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 3. ☐ Implement `sheets_get_data` tool (with unit/integration tests and MCP registration)
-4. ☐ Implement `sheets_update_cells` tool (with unit/integration tests and MCP registration)
+4. ☑ Implement `sheets_update_cells` tool (with unit/integration tests and MCP registration) - **COMPLETED**
 5. ☐ Implement `sheets_format_cells` tool (with unit/integration tests and MCP registration)
 6. ☐ Implement `sheets_calculate` tool (with unit/integration tests and MCP registration)
 7. ☐ Final integration and server registration (with comprehensive testing)

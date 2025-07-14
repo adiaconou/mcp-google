@@ -32,7 +32,7 @@ import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool } from './services/drive/tools/index';
-import { createSpreadsheetSchema, createSpreadsheet } from './services/sheets/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet, updateCellsSchema, updateCells } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -317,6 +317,12 @@ export class GoogleMCPServer {
       description: createSpreadsheetSchema.description,
       inputSchema: createSpreadsheetSchema.inputSchema,
       handler: createSpreadsheet
+    });
+    toolRegistry.register({
+      name: updateCellsSchema.name,
+      description: updateCellsSchema.description,
+      inputSchema: updateCellsSchema.inputSchema,
+      handler: updateCells
     });
   }
 

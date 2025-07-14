@@ -49,6 +49,23 @@ export interface SheetsCreateSpreadsheetParams {
 }
 
 /**
+ * Update request for a specific range
+ */
+export interface SheetsUpdateRequest {
+  range: string;
+  values: (string | number | boolean)[][];
+}
+
+/**
+ * Parameters for updating cells in a spreadsheet
+ */
+export interface SheetsUpdateParams {
+  spreadsheetId: string;
+  updates: SheetsUpdateRequest[];
+  valueInputOption?: 'RAW' | 'USER_ENTERED';
+}
+
+/**
  * Sheets API Client
  * 
  * Provides type-safe access to Google Sheets API with integrated OAuth
@@ -106,6 +123,64 @@ export class SheetsClient {
     }
     
     return this.sheets;
+  }
+
+  /**
+   * Update cells in a Google Sheets spreadsheet
+   * @param params - Parameters for updating cells
+   * @returns Promise resolving when updates are complete
+   * @throws {CalendarError} If the request fails
+   */
+  async updateCells(params: SheetsUpdateParams): Promise<{ updatedCells: number; updatedRanges: number }> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Validate required parameters
+      this.validateUpdateCellsParams(params);
+
+      console.error(`Updating cells in spreadsheet: ${params.spreadsheetId}`);
+
+      // Prepare batch update request
+      const requests: sheets_v4.Schema$ValueRange[] = [];
+      
+      for (const update of params.updates) {
+        requests.push({
+          range: update.range,
+          values: update.values
+        });
+      }
+
+      // Make API request to update cells
+      const response = await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: params.spreadsheetId,
+        requestBody: {
+          valueInputOption: params.valueInputOption || 'USER_ENTERED',
+          data: requests
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('No data returned from Sheets API');
+      }
+
+      // Calculate total updated cells
+      let totalUpdatedCells = 0;
+      if (response.data.responses) {
+        for (const updateResponse of response.data.responses) {
+          totalUpdatedCells += updateResponse.updatedCells || 0;
+        }
+      }
+
+      console.error(`Successfully updated ${totalUpdatedCells} cells in ${params.updates.length} ranges`);
+      
+      return {
+        updatedCells: totalUpdatedCells,
+        updatedRanges: params.updates.length
+      };
+
+    } catch (error) {
+      throw this.handleApiError(error, 'update cells');
+    }
   }
 
   /**
@@ -316,6 +391,60 @@ export class SheetsClient {
     };
 
     return spreadsheet;
+  }
+
+  /**
+   * Validate parameters for updating cells
+   * @param params - Parameters to validate
+   * @throws {CalendarError} If validation fails
+   */
+  private validateUpdateCellsParams(params: SheetsUpdateParams): void {
+    if (!params.spreadsheetId?.trim()) {
+      throw new CalendarError('Spreadsheet ID is required', MCPErrorCode.ValidationError);
+    }
+
+    if (!params.updates || !Array.isArray(params.updates) || params.updates.length === 0) {
+      throw new CalendarError('At least one update is required', MCPErrorCode.ValidationError);
+    }
+
+    if (params.updates.length > 100) {
+      throw new CalendarError('Cannot update more than 100 ranges at once', MCPErrorCode.ValidationError);
+    }
+
+    // Validate each update request
+    for (let i = 0; i < params.updates.length; i++) {
+      const update = params.updates[i];
+      
+      if (!update.range?.trim()) {
+        throw new CalendarError(`Update ${i}: Range is required`, MCPErrorCode.ValidationError);
+      }
+
+      // Basic A1 notation validation
+      if (!/^[A-Z]+[0-9]+:[A-Z]+[0-9]+$|^[A-Z]+[0-9]+$/.test(update.range.trim())) {
+        throw new CalendarError(`Update ${i}: Invalid range format. Use A1 notation (e.g., A1:B2)`, MCPErrorCode.ValidationError);
+      }
+
+      if (!update.values || !Array.isArray(update.values)) {
+        throw new CalendarError(`Update ${i}: Values must be a 2D array`, MCPErrorCode.ValidationError);
+      }
+
+      if (update.values.length === 0) {
+        throw new CalendarError(`Update ${i}: Values cannot be empty`, MCPErrorCode.ValidationError);
+      }
+
+      // Validate each row
+      for (let j = 0; j < update.values.length; j++) {
+        const row = update.values[j];
+        if (!Array.isArray(row)) {
+          throw new CalendarError(`Update ${i}, row ${j}: Each row must be an array`, MCPErrorCode.ValidationError);
+        }
+      }
+    }
+
+    // Validate value input option
+    if (params.valueInputOption && !['RAW', 'USER_ENTERED'].includes(params.valueInputOption)) {
+      throw new CalendarError('Value input option must be either RAW or USER_ENTERED', MCPErrorCode.ValidationError);
+    }
   }
 
   /**
