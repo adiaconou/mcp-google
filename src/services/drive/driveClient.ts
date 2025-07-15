@@ -108,14 +108,14 @@ export class DriveClient {
     try {
       const drive = await this.ensureInitialized();
       
-      // Build query string
-      let query = '';
-      if (params.folderId) {
-        query = `'${params.folderId}' in parents`;
-      }
-      if (params.query) {
-        query = query ? `${query} and ${params.query}` : params.query;
-      }
+    // Build query string - always exclude trashed files
+    let query = 'trashed=false';
+    if (params.folderId) {
+      query += ` and '${params.folderId}' in parents`;
+    }
+    if (params.query) {
+      query += ` and ${params.query}`;
+    }
 
       // Set request parameters
       const requestParams: drive_v3.Params$Resource$Files$List = {
