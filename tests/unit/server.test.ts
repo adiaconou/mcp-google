@@ -30,12 +30,11 @@ describe('GoogleMCPServer', () => {
   test('should have correct status after initialization', () => {
     const status = server.getStatus();
     expect(status.running).toBe(true);
-    expect(status.toolCount).toBe(16); // 2 Calendar + 5 Gmail + 5 Drive + 4 Sheets = 16 tools
+    expect(status.toolCount).toBe(15); // 2 Calendar + 4 Gmail + 5 Drive + 4 Sheets = 15 tools
     expect(status.tools).toContain('calendar_list_events');
     expect(status.tools).toContain('calendar_create_event');
     expect(status.tools).toContain('gmail_list_messages');
     expect(status.tools).toContain('gmail_get_message');
-    expect(status.tools).toContain('gmail_search_messages');
     expect(status.tools).toContain('gmail_download_attachment');
     expect(status.tools).toContain('gmail_export_email_screenshot');
     expect(status.tools).toContain('drive_list_files');

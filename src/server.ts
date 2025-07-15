@@ -30,7 +30,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
-import { gmailListMessagesTool, gmailGetMessageTool, gmailSearchMessagesTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
+import { gmailListMessagesTool, gmailGetMessageTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool, driveMoveFileTool } from './services/drive/tools/index';
 import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
@@ -299,9 +299,8 @@ export class GoogleMCPServer {
     toolRegistry.register(calendarCreateEventTool);   // Create new calendar events
     
     // Register Gmail tools for email management
-    toolRegistry.register(gmailListMessagesTool);     // List Gmail messages
+    toolRegistry.register(gmailListMessagesTool);     // List and search Gmail messages
     toolRegistry.register(gmailGetMessageTool);       // Get specific Gmail message
-    toolRegistry.register(gmailSearchMessagesTool);   // Search Gmail messages
     toolRegistry.register(gmailDownloadAttachmentTool); // Download email attachments
     toolRegistry.register(exportEmailScreenshotTool); // Export email content as PNG screenshot
     

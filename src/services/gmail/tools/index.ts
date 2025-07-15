@@ -5,9 +5,8 @@
  * making it easy to import and register them in the MCP server.
  */
 
-export { gmailListMessagesTool } from './listMessages';     // For browsing
+export { gmailListMessagesTool } from './listMessages';     // For browsing and searching
 export { gmailGetMessageTool } from './getMessage';
-export { gmailSearchMessagesTool } from './searchMessages'; // For searching
 export { gmailDownloadAttachmentTool } from './downloadAttachment'; // For downloading attachments
 export { exportEmailScreenshotTool } from './exportEmailScreenshot'; // For capturing email screenshots
 

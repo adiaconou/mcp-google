@@ -24,7 +24,6 @@ jest.mock('../../src/auth/oauthManager', () => ({
 import { GmailClient } from '../../src/services/gmail/gmailClient';
 import { gmailListMessagesTool } from '../../src/services/gmail/tools/listMessages';
 import { gmailGetMessageTool } from '../../src/services/gmail/tools/getMessage';
-import { gmailSearchMessagesTool } from '../../src/services/gmail/tools/searchMessages';
 import { gmailDownloadAttachmentTool } from '../../src/services/gmail/tools/downloadAttachment';
 import { oauthManager } from '../../src/auth/oauthManager';
 
@@ -699,47 +698,6 @@ describe('Gmail Service Integration', () => {
     });
   });
 
-  describe('gmail search messages integration', () => {
-    test('should integrate search messages tool with Gmail client end-to-end', async () => {
-      const mockListResponse = {
-        data: {
-          messages: [{ id: 'search-msg-1', threadId: 'search-thread-1' }]
-        }
-      };
-
-      const mockMessage = {
-        data: {
-          id: 'search-msg-1',
-          threadId: 'search-thread-1',
-          snippet: 'Important meeting about project budget...',
-          labelIds: ['INBOX', 'IMPORTANT'],
-          payload: {
-            headers: [
-              { name: 'Subject', value: 'Budget Meeting Tomorrow' },
-              { name: 'From', value: 'boss@company.com' },
-              { name: 'Date', value: 'Mon, 20 Jan 2024 15:00:00 +0000' }
-            ],
-            body: { data: '' }
-          }
-        }
-      };
-
-      mockGmailApi.users.messages.list.mockResolvedValue(mockListResponse);
-      mockGmailApi.users.messages.get.mockResolvedValue(mockMessage);
-
-      const result = await gmailSearchMessagesTool.handler({
-        query: 'from:boss@company.com subject:budget',
-        maxResults: 15
-      });
-
-      expect(result.isError).toBe(false);
-      expect(result.content).toHaveLength(1);
-      expect(result.content[0].text).toContain('Found 1 message(s) for query: "from:boss@company.com subject:budget"');
-      expect(result.content[0].text).toContain('Budget Meeting Tomorrow');
-      expect(result.content[0].text).toContain('boss@company.com');
-      expect(result.content[0].text).toContain('Important meeting about project budget');
-    });
-  });
 
   describe('parameter validation and processing', () => {
     test('should handle various query parameters correctly', async () => {
@@ -762,7 +720,7 @@ describe('Gmail Service Integration', () => {
       });
     });
 
-    test('should cap maxResults at 100', async () => {
+    test('should use pagination for large maxResults', async () => {
       mockGmailApi.users.messages.list.mockResolvedValue({
         data: { messages: [] }
       });
@@ -771,7 +729,7 @@ describe('Gmail Service Integration', () => {
 
       expect(mockGmailApi.users.messages.list).toHaveBeenCalledWith({
         userId: 'me',
-        maxResults: 100,
+        maxResults: 100, // Default pageSize is 100
         includeSpamTrash: false
       });
     });

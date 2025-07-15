@@ -170,7 +170,7 @@ describe('GmailClient', () => {
       });
     });
 
-    it('should cap maxResults at 100', async () => {
+    it('should use pageSize for pagination when maxResults exceeds 100', async () => {
       mockGmailApi.users.messages.list.mockResolvedValue({
         data: { messages: [] }
       });
@@ -179,7 +179,7 @@ describe('GmailClient', () => {
 
       expect(mockGmailApi.users.messages.list).toHaveBeenCalledWith({
         userId: 'me',
-        maxResults: 100,
+        maxResults: 100, // Default pageSize is 100
         includeSpamTrash: false
       });
     });
@@ -380,73 +380,6 @@ describe('GmailClient', () => {
       await client.sendMessage(params);
 
       expect(mockGmailApi.users.messages.send).toHaveBeenCalled();
-    });
-  });
-
-  describe('searchMessages', () => {
-    it('should search messages successfully', async () => {
-      const mockResponse = {
-        data: {
-          messages: [
-            { id: 'search-result-1', threadId: 'thread1' }
-          ]
-        }
-      };
-
-      const mockMessageDetails = {
-        data: {
-          id: 'search-result-1',
-          threadId: 'thread1',
-          snippet: 'Search result',
-          labelIds: ['INBOX'],
-          payload: {
-            headers: [
-              { name: 'Subject', value: 'Search Result Subject' }
-            ],
-            body: { data: '' }
-          }
-        }
-      };
-
-      mockGmailApi.users.messages.list.mockResolvedValue(mockResponse);
-      mockGmailApi.users.messages.get.mockResolvedValue(mockMessageDetails);
-
-      const result = await client.searchMessages('from:test@example.com');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].subject).toBe('Search Result Subject');
-
-      expect(mockGmailApi.users.messages.list).toHaveBeenCalledWith({
-        userId: 'me',
-        maxResults: 20,
-        includeSpamTrash: false,
-        q: 'from:test@example.com'
-      });
-    });
-
-    it('should validate search query', async () => {
-      await expect(client.searchMessages(''))
-        .rejects
-        .toThrow('Search query is required');
-
-      await expect(client.searchMessages('   '))
-        .rejects
-        .toThrow('Search query is required');
-    });
-
-    it('should limit search results', async () => {
-      mockGmailApi.users.messages.list.mockResolvedValue({
-        data: { messages: [] }
-      });
-
-      await client.searchMessages('test query', 150);
-
-      expect(mockGmailApi.users.messages.list).toHaveBeenCalledWith({
-        userId: 'me',
-        maxResults: 100, // Should be capped at 100
-        includeSpamTrash: false,
-        q: 'test query'
-      });
     });
   });
 

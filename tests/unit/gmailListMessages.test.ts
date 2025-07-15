@@ -27,7 +27,8 @@ describe('Gmail List Messages Tool', () => {
   describe('Tool Definition', () => {
     test('has correct name and description', () => {
       expect(gmailListMessagesTool.name).toBe('gmail_list_messages');
-      expect(gmailListMessagesTool.description).toBe('List Gmail messages with optional filtering');
+      expect(gmailListMessagesTool.description).toContain('List');
+      expect(gmailListMessagesTool.description).toContain('Gmail messages');
     });
 
     test('has correct input schema', () => {
@@ -36,6 +37,10 @@ describe('Gmail List Messages Tool', () => {
       expect(schema.properties).toHaveProperty('query');
       expect(schema.properties).toHaveProperty('maxResults');
       expect(schema.properties).toHaveProperty('includeSpamTrash');
+      expect(schema.properties).toHaveProperty('fetchAll');
+      expect(schema.properties).toHaveProperty('pageSize');
+      expect(schema.properties).toHaveProperty('maxTotalResults');
+      expect(schema.properties).toHaveProperty('pageToken');
     });
 
     test('has handler function', () => {
@@ -99,6 +104,23 @@ describe('Gmail List Messages Tool', () => {
         query: 'from:test@example.com',
         maxResults: 5,
         includeSpamTrash: true
+      };
+
+      await gmailListMessagesTool.handler(params);
+
+      expect(mockGmailClient.listMessages).toHaveBeenCalledWith(params);
+    });
+
+    test('passes pagination parameters to Gmail client', async () => {
+      mockGmailClient.listMessages.mockResolvedValue([]);
+
+      const params = {
+        query: 'from:test@example.com',
+        maxResults: 200,
+        fetchAll: true,
+        pageSize: 75,
+        maxTotalResults: 500,
+        pageToken: 'next-page-token'
       };
 
       await gmailListMessagesTool.handler(params);

@@ -37,6 +37,10 @@ export interface GmailListMessagesParams {
   maxResults?: number;
   pageToken?: string;
   includeSpamTrash?: boolean;
+  // New pagination parameters
+  fetchAll?: boolean;       // Auto-fetch all results across pages
+  pageSize?: number;        // Batch size per API call (default 100, max 100 - Gmail API limit)
+  maxTotalResults?: number; // Safety limit (default 1000)
 }
 
 /**
@@ -136,7 +140,11 @@ export class GmailClient {
   }
 
   /**
-   * List Gmail messages with optional filtering
+   * List Gmail messages with optional filtering and pagination support
+   * 
+   * Note: Gmail API has a maximum limit of 100 messages per request.
+   * For larger result sets, use pagination with fetchAll=true or multiple requests.
+   * 
    * @param params - Parameters for listing messages
    * @returns Promise resolving to array of Gmail messages
    * @throws {GmailError} If the request fails
@@ -145,49 +153,138 @@ export class GmailClient {
     try {
       const gmail = await this.ensureInitialized();
       
-      // Set default parameters
-      const requestParams: gmail_v1.Params$Resource$Users$Messages$List = {
-        userId: 'me',
-        maxResults: Math.min(params.maxResults || 10, 100), // Cap at 100
-        includeSpamTrash: params.includeSpamTrash || false
-      };
+      // Set pagination defaults
+      const fetchAll = params.fetchAll || false;
+      const pageSize = Math.min(params.pageSize || 100, 100); // Default 100, max 100 (Gmail API limit)
+      const maxTotalResults = params.maxTotalResults || 1000; // Safety limit
+      const requestedMaxResults = params.maxResults || 10;
 
-      // Add optional parameters only if they have values
-      if (params.query) {
-        requestParams.q = params.query;
-      }
-      if (params.labelIds && params.labelIds.length > 0) {
-        requestParams.labelIds = params.labelIds;
-      }
-      if (params.pageToken) {
-        requestParams.pageToken = params.pageToken;
-      }
-
-      // Make API request to list messages
-      const response = await gmail.users.messages.list(requestParams);
+      // Determine if we need pagination
+      const needsPagination = fetchAll || requestedMaxResults > 100;
       
-      if (!response.data.messages || response.data.messages.length === 0) {
-        return [];
+      if (!needsPagination) {
+        // Single page request - use existing logic
+        return await this.listMessagesSinglePage(params);
       }
 
-      // Get detailed information for each message
-      const messages: GmailMessage[] = [];
-      for (const messageRef of response.data.messages) {
-        if (messageRef.id) {
-          try {
-            const messageDetail = await this.getMessage(messageRef.id);
-            messages.push(messageDetail);
-          } catch (error) {
-            console.error(`Failed to get details for message ${messageRef.id}:`, error);
-            // Continue with other messages
+      // Multi-page pagination logic
+      const allMessages: GmailMessage[] = [];
+      let pageToken: string | undefined = params.pageToken;
+      let remaining = fetchAll ? maxTotalResults : Math.min(requestedMaxResults, maxTotalResults);
+
+
+      while (remaining > 0) {
+        const batchSize = Math.min(remaining, pageSize);
+        
+        // Build request parameters for this batch
+        const batchParams: gmail_v1.Params$Resource$Users$Messages$List = {
+          userId: 'me',
+          maxResults: batchSize,
+          includeSpamTrash: params.includeSpamTrash || false
+        };
+
+        // Add optional parameters
+        if (params.query) {
+          batchParams.q = params.query;
+        }
+        if (params.labelIds && params.labelIds.length > 0) {
+          batchParams.labelIds = params.labelIds;
+        }
+        if (pageToken) {
+          batchParams.pageToken = pageToken;
+        }
+
+        // Make API request for this batch
+        const response = await gmail.users.messages.list(batchParams);
+        
+        if (!response.data.messages || response.data.messages.length === 0) {
+          break;
+        }
+
+        // Get detailed information for each message in this batch
+        const batchMessages: GmailMessage[] = [];
+        for (const messageRef of response.data.messages) {
+          if (messageRef.id) {
+            try {
+              const messageDetail = await this.getMessage(messageRef.id);
+              batchMessages.push(messageDetail);
+            } catch (error) {
+              console.error(`Failed to get details for message ${messageRef.id}:`, error);
+              // Continue with other messages
+            }
           }
         }
+
+        allMessages.push(...batchMessages);
+        remaining -= batchMessages.length;
+
+        // Check if there are more pages
+        pageToken = response.data.nextPageToken || undefined;
+        if (!pageToken) {
+          break;
+        }
+
+        // Add small delay between requests to respect rate limits
+        if (remaining > 0) {
+          await new Promise(resolve => global.setTimeout(resolve, 100)); // 100ms delay
+        }
       }
-      return messages;
+
+      return allMessages;
 
     } catch (error) {
       throw this.handleApiError(error, 'list messages');
     }
+  }
+
+  /**
+   * List Gmail messages for a single page (internal helper)
+   * @param params - Parameters for listing messages
+   * @returns Promise resolving to array of Gmail messages
+   * @throws {GmailError} If the request fails
+   */
+  private async listMessagesSinglePage(params: GmailListMessagesParams): Promise<GmailMessage[]> {
+    const gmail = await this.ensureInitialized();
+    
+    // Set default parameters
+    const requestParams: gmail_v1.Params$Resource$Users$Messages$List = {
+      userId: 'me',
+      maxResults: Math.min(params.maxResults || 10, 100), // Cap at 100
+      includeSpamTrash: params.includeSpamTrash || false
+    };
+
+    // Add optional parameters only if they have values
+    if (params.query) {
+      requestParams.q = params.query;
+    }
+    if (params.labelIds && params.labelIds.length > 0) {
+      requestParams.labelIds = params.labelIds;
+    }
+    if (params.pageToken) {
+      requestParams.pageToken = params.pageToken;
+    }
+
+    // Make API request to list messages
+    const response = await gmail.users.messages.list(requestParams);
+    
+    if (!response.data.messages || response.data.messages.length === 0) {
+      return [];
+    }
+
+    // Get detailed information for each message
+    const messages: GmailMessage[] = [];
+    for (const messageRef of response.data.messages) {
+      if (messageRef.id) {
+        try {
+          const messageDetail = await this.getMessage(messageRef.id);
+          messages.push(messageDetail);
+        } catch (error) {
+          console.error(`Failed to get details for message ${messageRef.id}:`, error);
+          // Continue with other messages
+        }
+      }
+    }
+    return messages;
   }
 
   /**
@@ -262,28 +359,6 @@ export class GmailClient {
     }
   }
 
-  /**
-   * Search Gmail messages using Gmail query syntax
-   * @param query - Gmail search query
-   * @param maxResults - Maximum number of results to return
-   * @returns Promise resolving to array of matching Gmail messages
-   * @throws {GmailError} If the request fails
-   */
-  async searchMessages(query: string, maxResults: number = 20): Promise<GmailMessage[]> {
-    try {
-      if (!query.trim()) {
-        throw new GmailError('Search query is required', MCPErrorCode.ValidationError);
-      }
-
-      return await this.listMessages({
-        query: query.trim(),
-        maxResults: Math.min(maxResults, 100)
-      });
-
-    } catch (error) {
-      throw this.handleApiError(error, 'search messages');
-    }
-  }
 
   /**
    * Get attachment metadata from a Gmail message
