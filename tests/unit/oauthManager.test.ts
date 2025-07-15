@@ -140,7 +140,7 @@ describe('OAuthManager', () => {
       const authUrl = await oauthManager.getAuthorizationUrl();
       
       // Check for Drive scope in the URL (URL encoded)
-      expect(authUrl).toContain('drive.file');
+      expect(authUrl).toContain('drive');
     });
 
     it('should generate different state and challenge each time', async () => {
