@@ -127,7 +127,7 @@ export class OAuthManager {
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/gmail.labels',
-        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/drive.file',
         'https://www.googleapis.com/auth/spreadsheets'
       ]
     };
@@ -175,7 +175,6 @@ export class OAuthManager {
         prompt: 'consent' // Force consent to ensure refresh token
       });
 
-      console.error('Generated OAuth authorization URL');
       return authUrl;
 
     } catch (error) {
@@ -698,7 +697,6 @@ export class OAuthManager {
       console.error('Tokens cleared successfully');
     } catch {
       // File might not exist, which is fine
-      console.error('No tokens to clear');
     }
   }
 

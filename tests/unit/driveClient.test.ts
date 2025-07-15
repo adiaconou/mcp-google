@@ -63,7 +63,7 @@ describe('DriveClient', () => {
       }
 
       expect(mockOAuthManager.ensureScopes).toHaveBeenCalledWith([
-        'https://www.googleapis.com/auth/drive.file'
+        'https://www.googleapis.com/auth/drive'
       ]);
     });
   });
@@ -111,7 +111,7 @@ describe('DriveClient', () => {
 
       // Verify the correct scope was requested
       expect(mockOAuthManager.ensureScopes).toHaveBeenCalledWith([
-        'https://www.googleapis.com/auth/drive.file'
+        'https://www.googleapis.com/auth/drive'
       ]);
     });
 

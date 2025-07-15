@@ -5,24 +5,53 @@
  * Google Drive API calls, and end-to-end file move operations.
  */
 
-import { driveMoveFileTool } from '../../src/services/drive/tools/moveFile';
-import { driveClient } from '../../src/services/drive/driveClient';
-import { oauthManager } from '../../src/auth/oauthManager';
+// Mock Google APIs first
+const mockGoogleDrive = {
+  files: {
+    get: jest.fn(),
+    update: jest.fn()
+  }
+};
+
+jest.mock('googleapis', () => ({
+  google: {
+    drive: jest.fn(() => mockGoogleDrive),
+    auth: {
+      OAuth2: jest.fn()
+    }
+  }
+}));
 
 // Mock OAuth manager for integration tests
 jest.mock('../../src/auth/oauthManager');
 
+import { driveMoveFileTool } from '../../src/services/drive/tools/moveFile';
+import { driveClient } from '../../src/services/drive/driveClient';
+import { oauthManager } from '../../src/auth/oauthManager';
+
 describe('Drive Move File Integration', () => {
-  const mockOAuthManager = oauthManager.instance as jest.Mocked<typeof oauthManager.instance>;
+  const mockOAuthManager = oauthManager as jest.Mocked<typeof oauthManager>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Mock successful authentication by default
-    mockOAuthManager.ensureScopes.mockResolvedValue(undefined);
-    mockOAuthManager.getOAuth2Client.mockResolvedValue({
-      credentials: { access_token: 'mock-token' }
-    } as any);
+    // Reset the global mock
+    mockGoogleDrive.files.get.mockReset();
+    mockGoogleDrive.files.update.mockReset();
+    
+    // Mock OAuth manager instance with proper OAuth2 client
+    const mockOAuth2Client = {
+      credentials: { access_token: 'mock-token' },
+      request: jest.fn(),
+      setCredentials: jest.fn(),
+      getAccessToken: jest.fn().mockResolvedValue({ token: 'mock-token' }),
+    };
+    
+    (mockOAuthManager as any).instance = {
+      ensureScopes: jest.fn().mockResolvedValue(undefined),
+      getOAuth2Client: jest.fn().mockResolvedValue(mockOAuth2Client),
+      isAuthenticated: jest.fn().mockResolvedValue(true),
+    };
   });
 
   afterEach(() => {
@@ -32,35 +61,25 @@ describe('Drive Move File Integration', () => {
 
   describe('Authentication Integration', () => {
     it('should handle authentication flow during move operation', async () => {
-      // Mock the Google Drive API response
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['oldparent123'],
-              name: 'test-file.txt'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'test-file.txt',
-              mimeType: 'text/plain',
-              size: '1024',
-              modifiedTime: '2024-01-15T10:30:00Z',
-              webViewLink: 'https://drive.google.com/file/d/file123/view',
-              parents: ['newfolder456']
-            }
-          })
+      // Setup the global mock for this test
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['oldparent123'],
+          name: 'test-file.txt'
         }
-      };
-
-      // Mock google.drive to return our mock
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'test-file.txt',
+          mimeType: 'text/plain',
+          size: '1024',
+          modifiedTime: '2024-01-15T10:30:00Z',
+          webViewLink: 'https://drive.google.com/file/d/file123/view',
+          parents: ['newfolder456']
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -69,14 +88,14 @@ describe('Drive Move File Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('File Moved Successfully');
-      expect(mockOAuthManager.ensureScopes).toHaveBeenCalledWith([
+      expect((mockOAuthManager as any).instance.ensureScopes).toHaveBeenCalledWith([
         'https://www.googleapis.com/auth/drive'
       ]);
     });
 
     it('should handle authentication failure gracefully', async () => {
       // Mock authentication failure
-      mockOAuthManager.ensureScopes.mockRejectedValue(new Error('Authentication failed'));
+      (mockOAuthManager as any).instance.ensureScopes.mockRejectedValue(new Error('Authentication failed'));
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -90,33 +109,24 @@ describe('Drive Move File Integration', () => {
 
   describe('Google Drive API Integration', () => {
     it('should make correct API calls for file move', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['oldparent123'],
-              name: 'document.pdf'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'document.pdf',
-              mimeType: 'application/pdf',
-              size: '2048',
-              modifiedTime: '2024-01-15T10:30:00Z',
-              webViewLink: 'https://drive.google.com/file/d/file123/view',
-              parents: ['newfolder456']
-            }
-          })
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['oldparent123'],
+          name: 'document.pdf'
         }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'document.pdf',
+          mimeType: 'application/pdf',
+          size: '2048',
+          modifiedTime: '2024-01-15T10:30:00Z',
+          webViewLink: 'https://drive.google.com/file/d/file123/view',
+          parents: ['newfolder456']
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -138,33 +148,24 @@ describe('Drive Move File Integration', () => {
     });
 
     it('should make correct API calls for file move with rename', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['oldparent123'],
-              name: 'old-name.pdf'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'new-name.pdf',
-              mimeType: 'application/pdf',
-              size: '2048',
-              modifiedTime: '2024-01-15T10:30:00Z',
-              webViewLink: 'https://drive.google.com/file/d/file123/view',
-              parents: ['newfolder456']
-            }
-          })
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['oldparent123'],
+          name: 'old-name.pdf'
         }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'new-name.pdf',
+          mimeType: 'application/pdf',
+          size: '2048',
+          modifiedTime: '2024-01-15T10:30:00Z',
+          webViewLink: 'https://drive.google.com/file/d/file123/view',
+          parents: ['newfolder456']
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -184,30 +185,21 @@ describe('Drive Move File Integration', () => {
     });
 
     it('should handle multiple parent folders correctly', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['parent1', 'parent2', 'parent3'],
-              name: 'shared-file.txt'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'shared-file.txt',
-              mimeType: 'text/plain',
-              parents: ['newfolder456']
-            }
-          })
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['parent1', 'parent2', 'parent3'],
+          name: 'shared-file.txt'
         }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'shared-file.txt',
+          mimeType: 'text/plain',
+          parents: ['newfolder456']
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -227,20 +219,10 @@ describe('Drive Move File Integration', () => {
 
   describe('Error Scenarios Integration', () => {
     it('should handle Drive API file not found error', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockRejectedValue({
-            code: 404,
-            message: 'File not found'
-          })
-        }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
-        }
-      }));
+      mockGoogleDrive.files.get.mockRejectedValue({
+        code: 404,
+        message: 'File not found'
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'nonexistent',
@@ -248,24 +230,14 @@ describe('Drive Move File Integration', () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Drive resource not found');
+      expect(result.content[0].text).toContain('Target folder not found');
     });
 
     it('should handle Drive API permission error', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockRejectedValue({
-            code: 403,
-            message: 'Insufficient permissions'
-          })
-        }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
-        }
-      }));
+      mockGoogleDrive.files.get.mockRejectedValue({
+        code: 403,
+        message: 'Insufficient permissions'
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -273,24 +245,14 @@ describe('Drive Move File Integration', () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Insufficient permissions for Drive access');
+      expect(result.content[0].text).toContain('Insufficient permissions to move files in Google Drive');
     });
 
     it('should handle Drive API rate limit error', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockRejectedValue({
-            code: 429,
-            message: 'Rate limit exceeded'
-          })
-        }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
-        }
-      }));
+      mockGoogleDrive.files.get.mockRejectedValue({
+        code: 429,
+        message: 'Rate limit exceeded'
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -302,17 +264,7 @@ describe('Drive Move File Integration', () => {
     });
 
     it('should handle network connectivity issues', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockRejectedValue(new Error('ECONNREFUSED'))
-        }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
-        }
-      }));
+      mockGoogleDrive.files.get.mockRejectedValue(new Error('ECONNREFUSED'));
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -326,34 +278,25 @@ describe('Drive Move File Integration', () => {
 
   describe('Response Format Integration', () => {
     it('should format successful response correctly', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['oldparent123'],
-              name: 'test-document.pdf'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'test-document.pdf',
-              mimeType: 'application/pdf',
-              size: '1048576', // 1MB
-              modifiedTime: '2024-01-15T10:30:00Z',
-              createdTime: '2024-01-10T09:00:00Z',
-              webViewLink: 'https://drive.google.com/file/d/file123/view',
-              parents: ['newfolder456']
-            }
-          })
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['oldparent123'],
+          name: 'test-document.pdf'
         }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'test-document.pdf',
+          mimeType: 'application/pdf',
+          size: '1048576', // 1MB
+          modifiedTime: '2024-01-15T10:30:00Z',
+          createdTime: '2024-01-10T09:00:00Z',
+          webViewLink: 'https://drive.google.com/file/d/file123/view',
+          parents: ['newfolder456']
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',
@@ -376,30 +319,21 @@ describe('Drive Move File Integration', () => {
     });
 
     it('should handle missing optional fields gracefully', async () => {
-      const mockGoogleDrive = {
-        files: {
-          get: jest.fn().mockResolvedValue({
-            data: {
-              parents: ['oldparent123'],
-              name: 'minimal-file.txt'
-            }
-          }),
-          update: jest.fn().mockResolvedValue({
-            data: {
-              id: 'file123',
-              name: 'minimal-file.txt',
-              mimeType: 'text/plain'
-              // No size, modifiedTime, webViewLink, or parents
-            }
-          })
+      mockGoogleDrive.files.get.mockResolvedValue({
+        data: {
+          parents: ['oldparent123'],
+          name: 'minimal-file.txt'
         }
-      };
-
-      jest.doMock('googleapis', () => ({
-        google: {
-          drive: jest.fn().mockReturnValue(mockGoogleDrive)
+      });
+      
+      mockGoogleDrive.files.update.mockResolvedValue({
+        data: {
+          id: 'file123',
+          name: 'minimal-file.txt',
+          mimeType: 'text/plain'
+          // No size, modifiedTime, webViewLink, or parents
         }
-      }));
+      });
 
       const result = await driveMoveFileTool.handler({
         fileId: 'file123',

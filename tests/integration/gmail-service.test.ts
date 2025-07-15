@@ -794,15 +794,21 @@ describe('Gmail Service Integration', () => {
   describe('download attachment integration', () => {
     test('should download an attachment successfully via the tool', async () => {
       const messageId = 'msg-with-attachment';
-      const attachmentId = 'attachment-id-123';
+      const partId = '1'; // This is the partId that identifies the attachment part
+      const realAttachmentId = 'attachment-id-123'; // This is the actual Gmail attachment ID
       const filename = 'invoice.pdf';
-      const outputPath = '/tmp/downloads';
+      const outputPath = process.cwd(); // Use current working directory
 
       const mockMessagePayload = {
+        id: messageId,
         payload: {
           parts: [
             {
-              body: { attachmentId, size: 54321 },
+              partId: partId, // The part ID that the client looks for
+              body: { 
+                attachmentId: realAttachmentId, // The real attachment ID for the API call
+                size: 54321 
+              },
               filename,
               mimeType: 'application/pdf',
             },
@@ -819,10 +825,19 @@ describe('Gmail Service Integration', () => {
       mockGmailApi.users.messages.get.mockResolvedValue({ data: mockMessagePayload });
       mockGmailApi.users.messages.attachments.get.mockResolvedValue(mockAttachmentData);
       const writeFileMock = require('fs').promises.writeFile.mockResolvedValue(undefined);
+      
+      // Mock path operations
+      const pathMock = require('path');
+      pathMock.resolve.mockReturnValue(process.cwd() + '/invoice.pdf');
+      pathMock.join.mockReturnValue(process.cwd() + '/invoice.pdf');
+      
+      // Mock fs.existsSync to return true for the output path
+      const fsMock = require('fs');
+      fsMock.existsSync.mockReturnValue(true);
 
       const result = await gmailDownloadAttachmentTool.handler({
         messageId,
-        attachmentId,
+        attachmentId: partId, // Pass the partId, not the real attachment ID
         outputPath,
         filename,
       });

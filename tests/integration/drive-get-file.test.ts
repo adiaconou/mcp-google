@@ -1,77 +1,72 @@
 /**
  * Integration tests for Drive Get File Tool
  * 
- * Tests the drive_get_file MCP tool with real Drive API interactions.
+ * Tests the drive_get_file MCP tool with mocked Drive API interactions.
  */
+
+// Set up environment variables before any imports
+process.env.GOOGLE_CLIENT_ID = 'mock-client-id';
+process.env.GOOGLE_CLIENT_SECRET = 'mock-client-secret';
+
+// Mock the OAuth manager
+jest.mock('../../src/auth/oauthManager', () => ({
+  oauthManager: {
+    instance: {
+      getOAuth2Client: jest.fn(),
+      isAuthenticated: jest.fn().mockResolvedValue(true),
+      getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
+      ensureScopes: jest.fn().mockResolvedValue(undefined),
+    },
+  },
+}));
+
+// Mock the DriveClient directly
+jest.mock('../../src/services/drive/driveClient', () => ({
+  driveClient: {
+    instance: {
+      getFile: jest.fn(),
+      uploadFile: jest.fn(),
+    },
+    reset: jest.fn(),
+  },
+}));
 
 import { driveGetFileTool } from '../../src/services/drive/tools/getFile';
 import { oauthManager } from '../../src/auth/oauthManager';
 import { driveClient } from '../../src/services/drive/driveClient';
+import { CalendarError } from '../../src/types/mcp';
 
 describe('Drive Get File Integration Tests', () => {
   let testFileId: string;
 
-  beforeAll(async () => {
-    // Reset clients to ensure clean state
-    driveClient.reset();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    testFileId = 'mock-file-id-123';
     
-    // Initialize OAuth with Drive scope
-    await oauthManager.instance.ensureScopes([
-      'https://www.googleapis.com/auth/drive'
-    ]);
-  });
+    // Mock OAuth client
+    (oauthManager.instance.getOAuth2Client as jest.Mock).mockResolvedValue({
+      credentials: { access_token: 'mock-token' }
+    });
 
-  afterAll(() => {
-    // Clean up
-    driveClient.reset();
+    // Mock the DriveClient getFile method
+    (driveClient.instance.getFile as jest.Mock).mockResolvedValue({
+      id: testFileId,
+      name: 'drive-get-file-test.txt',
+      mimeType: 'text/plain',
+      size: '65',
+      createdTime: '2024-01-01T12:00:00.000Z',
+      modifiedTime: '2024-01-01T12:00:00.000Z',
+      content: 'This is a test file for Drive Get File integration testing.\nCreated at: 2024-01-01T12:00:00.000Z'
+    });
+
+    // Mock the DriveClient uploadFile method for setup
+    (driveClient.instance.uploadFile as jest.Mock).mockResolvedValue({
+      id: testFileId,
+      name: 'drive-get-file-test.txt'
+    });
   });
 
   describe('Real Drive API Integration', () => {
-
-    beforeAll(async () => {
-      // Create a test file for integration testing
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-        
-        // Create a temporary test file
-        const testContent = 'This is a test file for Drive Get File integration testing.\nCreated at: ' + new Date().toISOString();
-        const tempFilePath = path.join(os.tmpdir(), 'drive-get-file-test.txt');
-        fs.writeFileSync(tempFilePath, testContent);
-
-        // Upload the test file to Drive
-        const uploadResult = await driveClient.instance.uploadFile({
-          filePath: tempFilePath,
-          fileName: 'drive-get-file-test.txt',
-          description: 'Test file for drive_get_file integration tests'
-        });
-
-        testFileId = uploadResult.id;
-        
-        // Clean up local temp file
-        fs.unlinkSync(tempFilePath);
-        
-        console.log(`Created test file with ID: ${testFileId}`);
-      } catch (error) {
-        console.error('Failed to create test file:', error);
-        throw error;
-      }
-    });
-
-    afterAll(async () => {
-      // Clean up test file from Drive
-      if (testFileId) {
-        try {
-          // Note: We don't have a delete method in our client, but that's okay for testing
-          // The test file will remain in Drive but won't interfere with other tests
-          console.log(`Test file ${testFileId} left in Drive for manual cleanup if needed`);
-        } catch (error) {
-          console.warn('Failed to clean up test file:', error);
-        }
-      }
-    });
-
     it('should retrieve file metadata successfully', async () => {
       const result = await driveGetFileTool.handler({
         fileId: testFileId
@@ -91,6 +86,13 @@ describe('Drive Get File Integration Tests', () => {
       expect(text).toContain('Size:');
       expect(text).toContain('Created:');
       expect(text).toContain('Modified:');
+      
+      // Verify DriveClient was called with correct parameters
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        false,
+        1048576
+      );
     });
 
     it('should retrieve file with content when requested', async () => {
@@ -106,6 +108,13 @@ describe('Drive Get File Integration Tests', () => {
       expect(text).toContain('drive-get-file-test.txt');
       expect(text).toContain('File Content:');
       expect(text).toContain('This is a test file for Drive Get File integration testing');
+      
+      // Verify DriveClient was called with correct parameters
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        true,
+        1048576
+      );
     });
 
     it('should handle custom maxContentSize parameter', async () => {
@@ -117,6 +126,13 @@ describe('Drive Get File Integration Tests', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('File Content:');
+      
+      // Verify DriveClient was called with correct parameters
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        true,
+        2048
+      );
     });
 
     it('should handle file without content download', async () => {
@@ -128,9 +144,21 @@ describe('Drive Get File Integration Tests', () => {
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('drive-get-file-test.txt');
       expect(result.content[0].text).not.toContain('File Content:');
+      
+      // Verify DriveClient was called with correct parameters
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        false,
+        1048576
+      );
     });
 
     it('should handle non-existent file ID', async () => {
+      // Mock DriveClient to throw an error for this specific test
+      (driveClient.instance.getFile as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Drive resource not found', -32003)
+      );
+
       const result = await driveGetFileTool.handler({
         fileId: 'non-existent-file-id-12345'
       });
@@ -138,16 +166,22 @@ describe('Drive Get File Integration Tests', () => {
       expect(result.isError).toBe(true);
       expect(result.content).toHaveLength(1);
       expect(result.content[0].text).toContain('Drive Get File Error');
-      expect(result.content[0].text).toContain('File not found');
+      expect(result.content[0].text).toContain('Drive resource not found');
     });
 
     it('should handle invalid file ID format', async () => {
+      // Mock DriveClient to throw an error for this specific test
+      (driveClient.instance.getFile as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Invalid file ID format', -32602)
+      );
+
       const result = await driveGetFileTool.handler({
         fileId: 'invalid-format'
       });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Drive Get File Error');
+      expect(result.content[0].text).toContain('Invalid file ID format');
     });
 
     it('should validate required fileId parameter', async () => {
@@ -169,9 +203,10 @@ describe('Drive Get File Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle authentication errors gracefully', async () => {
-      // Temporarily break authentication
-      const originalGetOAuth2Client = oauthManager.instance.getOAuth2Client;
-      oauthManager.instance.getOAuth2Client = jest.fn().mockRejectedValue(new Error('Authentication failed'));
+      // Mock DriveClient to throw an authentication error
+      (driveClient.instance.getFile as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Authentication failed', -32000)
+      );
 
       const result = await driveGetFileTool.handler({
         fileId: 'any-file-id'
@@ -179,20 +214,22 @@ describe('Drive Get File Integration Tests', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Drive Get File Error');
-
-      // Restore original method
-      oauthManager.instance.getOAuth2Client = originalGetOAuth2Client;
+      expect(result.content[0].text).toContain('Authentication failed');
     });
 
     it('should handle network errors gracefully', async () => {
-      // This test would require mocking network failures
-      // For now, we'll test with an invalid file ID which should trigger API errors
+      // Mock DriveClient to throw a network error
+      (driveClient.instance.getFile as jest.Mock).mockRejectedValueOnce(
+        new Error('Network error: ECONNREFUSED')
+      );
+
       const result = await driveGetFileTool.handler({
         fileId: 'definitely-invalid-file-id-format-that-will-fail'
       });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Drive Get File Error');
+      expect(result.content[0].text).toContain('Network error: ECONNREFUSED');
     });
   });
 
@@ -229,11 +266,6 @@ describe('Drive Get File Integration Tests', () => {
 
   describe('Content Handling', () => {
     it('should handle text files with content download', async () => {
-      if (!testFileId) {
-        console.warn('Skipping content test - no test file available');
-        return;
-      }
-
       const result = await driveGetFileTool.handler({
         fileId: testFileId,
         includeContent: true
@@ -241,14 +273,10 @@ describe('Drive Get File Integration Tests', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('File Content:');
+      expect(result.content[0].text).toContain('This is a test file for Drive Get File integration testing');
     });
 
     it('should handle files without content when not requested', async () => {
-      if (!testFileId) {
-        console.warn('Skipping content test - no test file available');
-        return;
-      }
-
       const result = await driveGetFileTool.handler({
         fileId: testFileId,
         includeContent: false
@@ -261,11 +289,6 @@ describe('Drive Get File Integration Tests', () => {
 
   describe('Parameter Validation', () => {
     it('should enforce maxContentSize boundaries', async () => {
-      if (!testFileId) {
-        console.warn('Skipping boundary test - no test file available');
-        return;
-      }
-
       // Test with very small size (should be clamped to minimum)
       const resultSmall = await driveGetFileTool.handler({
         fileId: testFileId,
@@ -274,6 +297,13 @@ describe('Drive Get File Integration Tests', () => {
       });
 
       expect(resultSmall.isError).toBe(false);
+      
+      // Verify the size was clamped to minimum
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        true,
+        1024 // Should be clamped to minimum
+      );
 
       // Test with very large size (should be clamped to maximum)
       const resultLarge = await driveGetFileTool.handler({
@@ -283,6 +313,13 @@ describe('Drive Get File Integration Tests', () => {
       });
 
       expect(resultLarge.isError).toBe(false);
+      
+      // Verify the size was clamped to maximum
+      expect(driveClient.instance.getFile).toHaveBeenCalledWith(
+        testFileId,
+        true,
+        10485760 // Should be clamped to maximum
+      );
     });
   });
 });

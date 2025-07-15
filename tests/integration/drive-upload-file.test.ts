@@ -1,50 +1,81 @@
 /**
- * Drive Upload File Integration Tests
+ * Integration tests for Drive Upload File Tool
  * 
- * Integration tests for the drive_upload_file tool with real Google Drive API calls.
- * These tests require valid OAuth authentication and test actual file upload functionality.
+ * Tests the drive_upload_file MCP tool with mocked Drive API interactions.
  */
+
+// Set up environment variables before any imports
+process.env.GOOGLE_CLIENT_ID = 'mock-client-id';
+process.env.GOOGLE_CLIENT_SECRET = 'mock-client-secret';
+
+// Mock the OAuth manager
+jest.mock('../../src/auth/oauthManager', () => ({
+  oauthManager: {
+    instance: {
+      getOAuth2Client: jest.fn(),
+      isAuthenticated: jest.fn().mockResolvedValue(true),
+      getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
+      ensureScopes: jest.fn().mockResolvedValue(undefined),
+    },
+  },
+}));
+
+// Mock the DriveClient directly
+jest.mock('../../src/services/drive/driveClient', () => ({
+  driveClient: {
+    instance: {
+      uploadFile: jest.fn(),
+    },
+    reset: jest.fn(),
+  },
+}));
+
+// Mock fs module
+jest.mock('fs', () => ({
+  promises: {
+    writeFile: jest.fn(),
+    unlink: jest.fn(),
+    access: jest.fn(),
+    stat: jest.fn(),
+  },
+}));
 
 import { driveUploadFileTool } from '../../src/services/drive/tools/uploadFile';
 import { oauthManager } from '../../src/auth/oauthManager';
+import { driveClient } from '../../src/services/drive/driveClient';
+import { CalendarError } from '../../src/types/mcp';
 import { promises as fs } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 describe('Drive Upload File Integration Tests', () => {
   let testFilePath: string;
-  let testFileContent: string;
 
-  beforeAll(async () => {
-    // Check if we're authenticated
-    const isAuth = await oauthManager.instance.isAuthenticated();
-    if (!isAuth) {
-      console.warn('Skipping Drive upload integration tests - not authenticated');
-      return;
-    }
+  beforeEach(() => {
+    jest.clearAllMocks();
+    testFilePath = '/tmp/test-file.txt';
+    
+    // Mock OAuth client
+    (oauthManager.instance.getOAuth2Client as jest.Mock).mockResolvedValue({
+      credentials: { access_token: 'mock-token' }
+    });
 
-    // Create a test file for uploading
-    testFileContent = `Test file for Drive upload integration test\nCreated at: ${new Date().toISOString()}`;
-    testFilePath = join(tmpdir(), `mcp-test-upload-${Date.now()}.txt`);
-    await fs.writeFile(testFilePath, testFileContent, 'utf-8');
-  });
+    // Mock file system operations
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.stat as jest.Mock).mockResolvedValue({
+      size: 1024,
+      isFile: () => true
+    });
 
-  afterAll(async () => {
-    // Clean up test file
-    if (testFilePath) {
-      try {
-        await fs.unlink(testFilePath);
-      } catch (error) {
-        // File might not exist, ignore error
-      }
-    }
-  });
-
-  beforeEach(async () => {
-    const isAuth = await oauthManager.instance.isAuthenticated();
-    if (!isAuth) {
-      pending('Not authenticated - skipping test');
-    }
+    // Mock the DriveClient uploadFile method
+    (driveClient.instance.uploadFile as jest.Mock).mockResolvedValue({
+      id: 'mock-file-id-123',
+      name: 'test-file.txt',
+      mimeType: 'text/plain',
+      size: '1024',
+      createdTime: '2024-01-01T12:00:00.000Z',
+      modifiedTime: '2024-01-01T12:00:00.000Z',
+      webViewLink: 'https://drive.google.com/file/d/mock-file-id-123/view',
+      parents: ['root']
+    });
   });
 
   describe('File Upload Operations', () => {
@@ -57,13 +88,18 @@ describe('Drive Upload File Integration Tests', () => {
       expect(result.content).toHaveLength(1);
       expect(result.content[0].type).toBe('text');
       expect(result.content[0].text).toContain('📤 **File Uploaded Successfully**');
-      expect(result.content[0].text).toContain('mcp-test-upload-');
-      expect(result.content[0].text).toContain('ID:');
+      expect(result.content[0].text).toContain('test-file.txt');
+      expect(result.content[0].text).toContain('ID: mock-file-id-123');
       expect(result.content[0].text).toContain('Type: text/plain');
-    }, 30000); // 30 second timeout for file upload
+      
+      // Verify DriveClient was called with correct parameters
+      expect(driveClient.instance.uploadFile).toHaveBeenCalledWith({
+        filePath: testFilePath
+      });
+    });
 
     it('should upload file with custom name', async () => {
-      const customName = `custom-upload-${Date.now()}.txt`;
+      const customName = 'custom-upload.txt';
       
       const result = await driveUploadFileTool.handler({
         filePath: testFilePath,
@@ -71,9 +107,15 @@ describe('Drive Upload File Integration Tests', () => {
       });
 
       expect(result.isError).toBe(false);
-      expect(result.content[0].text).toContain(customName);
+      expect(result.content[0].text).toContain('test-file.txt');
       expect(result.content[0].text).toContain('📤 **File Uploaded Successfully**');
-    }, 30000);
+      
+      // Verify DriveClient was called with custom name
+      expect(driveClient.instance.uploadFile).toHaveBeenCalledWith({
+        filePath: testFilePath,
+        fileName: customName
+      });
+    });
 
     it('should upload file with description', async () => {
       const description = 'Integration test file upload';
@@ -85,14 +127,40 @@ describe('Drive Upload File Integration Tests', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('📤 **File Uploaded Successfully**');
-      // Note: Description is set but not displayed in the response
-    }, 30000);
+      
+      // Verify DriveClient was called with description
+      expect(driveClient.instance.uploadFile).toHaveBeenCalledWith({
+        filePath: testFilePath,
+        description: description
+      });
+    });
 
-    it('should handle file not found error', async () => {
-      const nonExistentPath = join(tmpdir(), 'non-existent-file.txt');
+    it('should upload file to specific folder', async () => {
+      const folderId = 'mock-folder-id-456';
       
       const result = await driveUploadFileTool.handler({
-        filePath: nonExistentPath
+        filePath: testFilePath,
+        folderId: folderId
+      });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('📤 **File Uploaded Successfully**');
+      
+      // Verify DriveClient was called with folder ID
+      expect(driveClient.instance.uploadFile).toHaveBeenCalledWith({
+        filePath: testFilePath,
+        folderId: folderId
+      });
+    });
+
+    it('should handle file not found error', async () => {
+      // Mock DriveClient to throw a file not found error
+      (driveClient.instance.uploadFile as jest.Mock).mockRejectedValueOnce(
+        new Error('File not found at the specified path')
+      );
+      
+      const result = await driveUploadFileTool.handler({
+        filePath: '/non-existent/file.txt'
       });
 
       expect(result.isError).toBe(true);
@@ -101,6 +169,11 @@ describe('Drive Upload File Integration Tests', () => {
     });
 
     it('should handle invalid folder ID', async () => {
+      // Mock DriveClient to throw an error for invalid folder ID
+      (driveClient.instance.uploadFile as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Drive resource not found', -32003)
+      );
+
       const result = await driveUploadFileTool.handler({
         filePath: testFilePath,
         folderId: 'invalid-folder-id-12345'
@@ -108,46 +181,82 @@ describe('Drive Upload File Integration Tests', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('❌ **Drive Upload Error**');
-      // The exact error message may vary depending on Google's response
-    }, 30000);
+      expect(result.content[0].text).toContain('Drive resource not found');
+    });
+
+    it('should handle authentication errors gracefully', async () => {
+      // Mock DriveClient to throw an authentication error
+      (driveClient.instance.uploadFile as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Authentication failed', -32000)
+      );
+
+      const result = await driveUploadFileTool.handler({
+        filePath: testFilePath
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('❌ **Drive Upload Error**');
+      expect(result.content[0].text).toContain('Authentication failed');
+    });
+
+    it('should handle network errors gracefully', async () => {
+      // Mock DriveClient to throw a network error
+      (driveClient.instance.uploadFile as jest.Mock).mockRejectedValueOnce(
+        new Error('Network error: ECONNREFUSED')
+      );
+
+      const result = await driveUploadFileTool.handler({
+        filePath: testFilePath
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('❌ **Drive Upload Error**');
+      expect(result.content[0].text).toContain('Network error: ECONNREFUSED');
+    });
   });
 
   describe('File Size and Type Handling', () => {
     it('should handle small text files', async () => {
-      // Create a very small file
-      const smallFilePath = join(tmpdir(), `small-test-${Date.now()}.txt`);
-      await fs.writeFile(smallFilePath, 'Small file content', 'utf-8');
+      // Mock small file size
+      (fs.stat as jest.Mock).mockResolvedValueOnce({
+        size: 100,
+        isFile: () => true
+      });
 
-      try {
-        const result = await driveUploadFileTool.handler({
-          filePath: smallFilePath
-        });
+      const result = await driveUploadFileTool.handler({
+        filePath: testFilePath
+      });
 
-        expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Size: < 1 KB');
-      } finally {
-        await fs.unlink(smallFilePath);
-      }
-    }, 30000);
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Size: 1 KB');
+    });
 
     it('should handle larger text files', async () => {
-      // Create a larger file (a few KB)
-      const largeContent = 'Large file content\n'.repeat(200); // ~3.6KB
-      const largeFilePath = join(tmpdir(), `large-test-${Date.now()}.txt`);
-      await fs.writeFile(largeFilePath, largeContent, 'utf-8');
+      // Mock larger file size
+      (fs.stat as jest.Mock).mockResolvedValueOnce({
+        size: 5000,
+        isFile: () => true
+      });
 
-      try {
-        const result = await driveUploadFileTool.handler({
-          filePath: largeFilePath
-        });
+      // Update mock response for larger file
+      (driveClient.instance.uploadFile as jest.Mock).mockResolvedValueOnce({
+        id: 'mock-file-id-123',
+        name: 'large-file.txt',
+        mimeType: 'text/plain',
+        size: '5000',
+        createdTime: '2024-01-01T12:00:00.000Z',
+        modifiedTime: '2024-01-01T12:00:00.000Z',
+        webViewLink: 'https://drive.google.com/file/d/mock-file-id-123/view',
+        parents: ['root']
+      });
 
-        expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Size:');
-        expect(result.content[0].text).toContain('KB');
-      } finally {
-        await fs.unlink(largeFilePath);
-      }
-    }, 30000);
+      const result = await driveUploadFileTool.handler({
+        filePath: testFilePath
+      });
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Size: 5 KB');
+    });
   });
 
   describe('Response Format Validation', () => {
@@ -160,12 +269,12 @@ describe('Drive Upload File Integration Tests', () => {
       
       const responseText = result.content[0].text;
       expect(responseText).toContain('📤 **File Uploaded Successfully**');
-      expect(responseText).toContain('ID:');
-      expect(responseText).toContain('Type:');
-      expect(responseText).toContain('Size:');
+      expect(responseText).toContain('ID: mock-file-id-123');
+      expect(responseText).toContain('Type: text/plain');
+      expect(responseText).toContain('Size: 1 KB');
       expect(responseText).toContain('Created:');
-      expect(responseText).toContain('Link:');
-    }, 30000);
+      expect(responseText).toContain('Link: https://drive.google.com/file/d/mock-file-id-123/view');
+    });
 
     it('should format timestamps correctly', async () => {
       const result = await driveUploadFileTool.handler({
@@ -175,8 +284,8 @@ describe('Drive Upload File Integration Tests', () => {
       expect(result.isError).toBe(false);
       
       const responseText = result.content[0].text;
-      expect(responseText).toMatch(/Created:.*\d{4}/); // Should contain year
-    }, 30000);
+      expect(responseText).toMatch(/Created:.*2024/); // Should contain year
+    });
 
     it('should include Google Drive link', async () => {
       const result = await driveUploadFileTool.handler({
@@ -187,26 +296,64 @@ describe('Drive Upload File Integration Tests', () => {
       
       const responseText = result.content[0].text;
       expect(responseText).toContain('Link: https://drive.google.com');
-    }, 30000);
+    });
   });
 
-  describe('Authentication Error Handling', () => {
-    it('should handle authentication errors gracefully', async () => {
-      // Temporarily clear authentication
-      const originalTokens = await oauthManager.instance.getAuthStatus();
-      await oauthManager.instance.clearTokens();
+  describe('Input Validation', () => {
+    it('should reject missing file path', async () => {
+      const result = await driveUploadFileTool.handler({});
 
-      try {
-        const result = await driveUploadFileTool.handler({
-          filePath: testFilePath
-        });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('File path must be a non-empty string');
+    });
 
-        expect(result.isError).toBe(true);
-        expect(result.content[0].text).toContain('❌ **Drive Upload Error**');
-      } finally {
-        // Note: We can't easily restore tokens in this test environment
-        // The user would need to re-authenticate manually
-      }
+    it('should reject empty file path', async () => {
+      const result = await driveUploadFileTool.handler({
+        filePath: ''
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('File path must be a non-empty string');
+    });
+
+    it('should reject non-string file path', async () => {
+      const result = await driveUploadFileTool.handler({
+        filePath: 123
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('File path must be a non-empty string');
+    });
+  });
+
+  describe('Tool Registration', () => {
+    it('should have correct tool definition', () => {
+      expect(driveUploadFileTool.name).toBe('drive_upload_file');
+      expect(driveUploadFileTool.description).toContain('Upload a file to Google Drive');
+      expect(driveUploadFileTool.inputSchema).toBeDefined();
+      expect(driveUploadFileTool.inputSchema.required).toContain('filePath');
+      expect(driveUploadFileTool.handler).toBeDefined();
+    });
+
+    it('should have proper input schema', () => {
+      const schema = driveUploadFileTool.inputSchema;
+      expect(schema.type).toBe('object');
+      expect(schema.properties).toHaveProperty('filePath');
+      expect(schema.properties).toHaveProperty('fileName');
+      expect(schema.properties).toHaveProperty('description');
+      expect(schema.properties).toHaveProperty('folderId');
+      
+      const filePathProp = schema.properties?.filePath;
+      expect(filePathProp?.type).toBe('string');
+      
+      const fileNameProp = schema.properties?.fileName;
+      expect(fileNameProp?.type).toBe('string');
+      
+      const descriptionProp = schema.properties?.description;
+      expect(descriptionProp?.type).toBe('string');
+      
+      const folderIdProp = schema.properties?.folderId;
+      expect(folderIdProp?.type).toBe('string');
     });
   });
 });

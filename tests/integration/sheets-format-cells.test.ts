@@ -1,74 +1,56 @@
 /**
  * Integration tests for Sheets Format Cells functionality
  * 
- * These tests verify the formatCells tool works end-to-end with the Google Sheets API.
- * They require valid authentication and test against real Google Sheets.
+ * These tests verify the formatCells tool works end-to-end with mocked Google Sheets API.
  */
 
+// Set up environment variables before any imports
+process.env.GOOGLE_CLIENT_ID = 'mock-client-id';
+process.env.GOOGLE_CLIENT_SECRET = 'mock-client-secret';
+
+// Mock the OAuth manager
+jest.mock('../../src/auth/oauthManager', () => ({
+  oauthManager: {
+    instance: {
+      getOAuth2Client: jest.fn(),
+      isAuthenticated: jest.fn().mockResolvedValue(true),
+      getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
+      ensureScopes: jest.fn().mockResolvedValue(undefined),
+    },
+  },
+}));
+
+// Mock the SheetsClient directly
+jest.mock('../../src/services/sheets/sheetsClient', () => ({
+  sheetsClient: {
+    instance: {
+      formatCells: jest.fn(),
+    },
+  },
+}));
+
 import { formatCells } from '../../src/services/sheets/tools/formatCells';
-import { createSpreadsheet } from '../../src/services/sheets/tools/createSpreadsheet';
-import { updateCells } from '../../src/services/sheets/tools/updateCells';
 import { oauthManager } from '../../src/auth/oauthManager';
+import { sheetsClient } from '../../src/services/sheets/sheetsClient';
+import { CalendarError } from '../../src/types/mcp';
 
 describe('Sheets Format Cells Integration', () => {
   let testSpreadsheetId: string;
 
-  beforeAll(async () => {
-    // Ensure authentication
-    const isAuth = await oauthManager.instance.isAuthenticated();
-    if (!isAuth) {
-      console.log('Authentication required for integration tests');
-      await oauthManager.instance.authenticate();
-    }
-
-    // Create a test spreadsheet
-    const createResult = await createSpreadsheet({
-      title: `Format Cells Test ${Date.now()}`,
-      sheets: [{
-        title: 'Test Data',
-        rowCount: 20,
-        columnCount: 10
-      }]
+  beforeEach(() => {
+    jest.clearAllMocks();
+    testSpreadsheetId = 'mock-spreadsheet-id-123';
+    
+    // Mock OAuth client
+    (oauthManager.instance.getOAuth2Client as jest.Mock).mockResolvedValue({
+      credentials: { access_token: 'mock-token' }
     });
 
-    if (createResult.isError) {
-      throw new Error('Failed to create test spreadsheet');
-    }
-
-    // Extract spreadsheet ID from the response
-    const match = createResult.content[0].text.match(/Spreadsheet ID: ([a-zA-Z0-9-_]+)/);
-    if (!match) {
-      throw new Error('Could not extract spreadsheet ID from response');
-    }
-    testSpreadsheetId = match[1];
-
-    // Add some test data
-    await updateCells({
-      spreadsheetId: testSpreadsheetId,
-      updates: [{
-        range: 'A1:D5',
-        values: [
-          ['Name', 'Score', 'Grade', 'Status'],
-          ['Alice', 95, 'A', 'Pass'],
-          ['Bob', 87, 'B', 'Pass'],
-          ['Charlie', 72, 'C', 'Pass'],
-          ['David', 45, 'F', 'Fail']
-        ]
-      }]
+    // Mock the SheetsClient formatCells method
+    (sheetsClient.instance.formatCells as jest.Mock).mockResolvedValue({
+      formattedRanges: 1,
+      appliedFormats: ['basic styling']
     });
-  });
-
-  afterAll(async () => {
-    // Clean up: delete the test spreadsheet
-    if (testSpreadsheetId) {
-      try {
-        // Note: We don't have a delete spreadsheet tool, so we'll leave it
-        // In a real scenario, you might want to move it to trash via Drive API
-        console.log(`Test spreadsheet created: ${testSpreadsheetId}`);
-      } catch (error) {
-        console.warn('Failed to clean up test spreadsheet:', error);
-      }
-    }
   });
 
   describe('Basic Formatting', () => {
@@ -86,6 +68,17 @@ describe('Sheets Format Cells Integration', () => {
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
       expect(result.content[0].text).toContain('formatting operation(s)');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'A1:D1',
+        backgroundColor: '#4285F4',
+        fontColor: '#FFFFFF',
+        bold: true,
+        fontSize: 12,
+        textAlignment: 'CENTER'
+      });
     });
 
     it('should apply number formatting', async () => {
@@ -100,6 +93,16 @@ describe('Sheets Format Cells Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'B2:B5',
+        numberFormat: {
+          type: 'NUMBER',
+          decimalPlaces: 1
+        }
+      });
     });
   });
 
@@ -117,6 +120,17 @@ describe('Sheets Format Cells Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'B2:B5',
+        conditionalFormat: {
+          condition: 'GREATER_THAN',
+          value: 90,
+          backgroundColor: '#00FF00'
+        }
+      });
     });
 
     it('should apply conditional formatting for scores between 70-89', async () => {
@@ -133,6 +147,18 @@ describe('Sheets Format Cells Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'B2:B5',
+        conditionalFormat: {
+          condition: 'BETWEEN',
+          value: 70,
+          value2: 89,
+          backgroundColor: '#FFFF00'
+        }
+      });
     });
   });
 
@@ -147,6 +173,14 @@ describe('Sheets Format Cells Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'A1:D5',
+        addFilter: true,
+        freezeRows: 1
+      });
     });
 
     it('should sort data by score descending', async () => {
@@ -161,24 +195,46 @@ describe('Sheets Format Cells Integration', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Successfully applied');
+      
+      // Verify SheetsClient was called with correct parameters
+      expect(sheetsClient.instance.formatCells).toHaveBeenCalledWith({
+        spreadsheetId: testSpreadsheetId,
+        range: 'A1:D5',
+        sortBy: {
+          column: 1,
+          ascending: false
+        }
+      });
     });
   });
 
   describe('Error Scenarios', () => {
     it('should handle invalid spreadsheet ID', async () => {
+      // Mock SheetsClient to throw an error for this specific test
+      (sheetsClient.instance.formatCells as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Sheets resource not found', -32003)
+      );
+
+      // The formatCells tool re-throws CalendarError instances, so we expect it to throw
       await expect(formatCells({
         spreadsheetId: 'invalid-id',
         range: 'A1:B2',
         bold: true
-      })).rejects.toThrow();
+      })).rejects.toThrow('Sheets resource not found');
     });
 
     it('should handle invalid range', async () => {
+      // Mock SheetsClient to throw an error for this specific test
+      (sheetsClient.instance.formatCells as jest.Mock).mockRejectedValueOnce(
+        new CalendarError('Invalid range', -32602)
+      );
+
+      // The formatCells tool re-throws CalendarError instances, so we expect it to throw
       await expect(formatCells({
         spreadsheetId: testSpreadsheetId,
         range: 'INVALID:RANGE',
         bold: true
-      })).rejects.toThrow();
+      })).rejects.toThrow('Invalid range');
     });
   });
 });

@@ -1,3 +1,7 @@
+// Load environment variables for tests
+// eslint-disable-next-line no-undef
+require('dotenv').config({ path: '.env.test' });
+
 // eslint-disable-next-line no-undef
 module.exports = {
   preset: 'ts-jest',

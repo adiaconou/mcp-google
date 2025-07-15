@@ -79,31 +79,51 @@ describe('MCP Protocol Integration', () => {
       const status = server.getStatus();
       
       expect(status.running).toBe(true);
-      expect(status.toolCount).toBe(6);
+      expect(status.toolCount).toBe(16);
       expect(status.tools).toContain('calendar_list_events');
       expect(status.tools).toContain('calendar_create_event');
       expect(status.tools).toContain('gmail_list_messages');
       expect(status.tools).toContain('gmail_get_message');
       expect(status.tools).toContain('gmail_search_messages');
       expect(status.tools).toContain('gmail_download_attachment');
+      expect(status.tools).toContain('drive_list_files');
+      expect(status.tools).toContain('drive_get_file');
+      expect(status.tools).toContain('drive_upload_file');
+      expect(status.tools).toContain('drive_create_folder');
+      expect(status.tools).toContain('drive_move_file');
+      expect(status.tools).toContain('sheets_get_data');
+      expect(status.tools).toContain('sheets_update_cells');
+      expect(status.tools).toContain('sheets_format_cells');
+      expect(status.tools).toContain('sheets_create_spreadsheet');
+      expect(status.tools).toContain('gmail_export_email_screenshot');
     });
 
     test('should have tools available in registry after initialization', () => {
       const stats = toolRegistry.getStats();
       
-      expect(stats.totalTools).toBe(6);
+      expect(stats.totalTools).toBe(16);
       expect(stats.toolNames).toContain('calendar_list_events');
       expect(stats.toolNames).toContain('calendar_create_event');
       expect(stats.toolNames).toContain('gmail_list_messages');
       expect(stats.toolNames).toContain('gmail_get_message');
       expect(stats.toolNames).toContain('gmail_search_messages');
       expect(stats.toolNames).toContain('gmail_download_attachment');
+      expect(stats.toolNames).toContain('drive_list_files');
+      expect(stats.toolNames).toContain('drive_get_file');
+      expect(stats.toolNames).toContain('drive_upload_file');
+      expect(stats.toolNames).toContain('drive_create_folder');
+      expect(stats.toolNames).toContain('drive_move_file');
+      expect(stats.toolNames).toContain('sheets_get_data');
+      expect(stats.toolNames).toContain('sheets_update_cells');
+      expect(stats.toolNames).toContain('sheets_format_cells');
+      expect(stats.toolNames).toContain('sheets_create_spreadsheet');
+      expect(stats.toolNames).toContain('gmail_export_email_screenshot');
     });
 
     test('should have properly structured tool definitions', () => {
       const tools = toolRegistry.listTools();
       
-      expect(tools).toHaveLength(6);
+      expect(tools).toHaveLength(16);
       
       tools.forEach(tool => {
         expect(tool).toHaveProperty('name');
@@ -232,7 +252,7 @@ describe('MCP Protocol Integration', () => {
     test('should maintain tool registry state across server operations', () => {
       // Initial state
       const initialStats = toolRegistry.getStats();
-      expect(initialStats.totalTools).toBe(6);
+      expect(initialStats.totalTools).toBe(16);
 
       // Server status should reflect registry state
       const serverStatus = server.getStatus();

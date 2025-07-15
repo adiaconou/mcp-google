@@ -43,12 +43,12 @@ describe('SheetsClient', () => {
     // Mock google.sheets to return our mock API
     mockGoogle.sheets.mockReturnValue(mockSheetsApi);
 
-    // Mock OAuth manager
-    mockOAuthManager.instance = {
+    // Mock OAuth manager instance
+    (mockOAuthManager as any).instance = {
       ensureScopes: jest.fn().mockResolvedValue(undefined),
       getOAuth2Client: jest.fn().mockResolvedValue(mockOAuth2Client),
       isAuthenticated: jest.fn().mockResolvedValue(true),
-    } as any;
+    };
 
     // Create new client instance
     sheetsClient = new SheetsClient();
@@ -223,9 +223,12 @@ describe('SheetsClient', () => {
     });
 
     it('should handle authentication errors', async () => {
-      mockOAuthManager.instance.ensureScopes.mockRejectedValue(
+      // Create a proper mock function for ensureScopes
+      const mockEnsureScopes = jest.fn().mockRejectedValue(
         new CalendarError('Missing required scopes', MCPErrorCode.AuthenticationError)
       );
+      
+      (mockOAuthManager as any).instance.ensureScopes = mockEnsureScopes;
 
       await expect(
         sheetsClient.createSpreadsheet({
