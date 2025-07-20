@@ -23,7 +23,7 @@ module.exports = {
   forceExit: true, // Force Jest to exit after tests complete
   detectOpenHandles: false, // Disable open handle detection to reduce noise
   // Ensure proper cleanup of resources
-  setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   // Better error handling for worker processes
   maxWorkers: 1, // Use single worker to avoid resource conflicts
 };
