@@ -1,12 +1,13 @@
 /**
  * Gmail List Messages Tool Unit Tests
  * 
- * Tests for the gmail_list_messages MCP tool following established patterns
+ * Simplified tests using factory functions and common patterns
  */
 
 import { gmailListMessagesTool } from '../../../../../src/services/gmail/tools/listMessages';
 import { gmailClient, GmailMessage } from '../../../../../src/services/gmail/gmailClient';
 import { CalendarError, MCPErrorCode } from '../../../../../src/types/mcp';
+import { mockFactories, testHelpers, testPatterns } from '../../../../helpers/testFactories';
 
 // Mock the Gmail client
 jest.mock('../../../../../src/services/gmail/gmailClient', () => ({
@@ -20,9 +21,7 @@ jest.mock('../../../../../src/services/gmail/gmailClient', () => ({
 const mockGmailClient = gmailClient.instance as jest.Mocked<typeof gmailClient.instance>;
 
 describe('Gmail List Messages Tool', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(testPatterns.clientTestSetup(mockGmailClient));
 
   describe('Tool Definition', () => {
     test('has correct name and description', () => {
@@ -50,51 +49,38 @@ describe('Gmail List Messages Tool', () => {
 
   describe('Message Listing', () => {
     test('successfully lists messages', async () => {
-      const mockMessages: GmailMessage[] = [
-        {
-          id: '1',
-          threadId: 'thread1',
-          snippet: 'Test message snippet',
+      const mockMessages = [
+        mockFactories.gmailMessage({ 
+          id: '1', 
           subject: 'Test Subject',
-          from: 'test@example.com',
-          date: '2024-01-01T10:00:00Z',
-          isRead: true,
-          labels: ['INBOX']
-        },
-        {
-          id: '2',
-          threadId: 'thread2',
-          snippet: 'Another message',
+          from: 'test@example.com'
+        }),
+        mockFactories.gmailMessage({ 
+          id: '2', 
           subject: 'Another Subject',
           from: 'another@example.com',
-          date: '2024-01-02T11:00:00Z',
           isRead: false,
           labels: ['INBOX', 'UNREAD']
-        }
+        })
       ];
 
       mockGmailClient.listMessages.mockResolvedValue(mockMessages);
 
-      const result = await gmailListMessagesTool.handler({
-        maxResults: 10
-      });
+      const result = await gmailListMessagesTool.handler({ maxResults: 10 });
+      const text = testHelpers.expectSuccessResult(result);
 
-      expect(result.isError).toBe(false);
-      expect(result.content).toHaveLength(1);
-      expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toContain('Test Subject');
-      expect(result.content[0].text).toContain('test@example.com');
-      expect(result.content[0].text).toContain('[UNREAD]');
+      expect(text).toContain('Test Subject');
+      expect(text).toContain('test@example.com');
+      expect(text).toContain('[UNREAD]');
     });
 
     test('handles empty message list', async () => {
       mockGmailClient.listMessages.mockResolvedValue([]);
 
       const result = await gmailListMessagesTool.handler({});
+      const text = testHelpers.expectSuccessResult(result);
 
-      expect(result.isError).toBe(false);
-      expect(result.content).toHaveLength(1);
-      expect(result.content[0].text).toBe('No messages found.');
+      expect(text).toBe('No messages found.');
     });
 
     test('passes parameters to Gmail client', async () => {
@@ -131,76 +117,58 @@ describe('Gmail List Messages Tool', () => {
 
   describe('Message Formatting', () => {
     test('formats message with all fields', async () => {
-      const mockMessage: GmailMessage = {
+      const mockMessage = mockFactories.gmailMessage({
         id: '1',
-        threadId: 'thread1',
         snippet: 'Test snippet',
         subject: 'Test Subject',
-        from: 'test@example.com',
-        date: '2024-01-01T10:00:00Z',
-        isRead: true,
-        labels: ['INBOX']
-      };
+        from: 'test@example.com'
+      });
 
       mockGmailClient.listMessages.mockResolvedValue([mockMessage]);
-
       const result = await gmailListMessagesTool.handler({});
+      const text = testHelpers.expectSuccessResult(result);
 
-      expect(result.content[0].text).toContain('Message ID: 1');
-      expect(result.content[0].text).toContain('Subject: Test Subject');
-      expect(result.content[0].text).toContain('From: test@example.com');
-      expect(result.content[0].text).toContain('Preview: Test snippet');
-      expect(result.content[0].text).not.toContain('[UNREAD]');
+      expect(text).toContain('Message ID: 1');
+      expect(text).toContain('Subject: Test Subject');
+      expect(text).toContain('From: test@example.com');
+      expect(text).toContain('Preview: Test snippet');
+      expect(text).not.toContain('[UNREAD]');
     });
 
     test('formats message with missing fields', async () => {
-      const mockMessage: GmailMessage = {
+      const mockMessage = mockFactories.gmailMessage({
         id: '1',
-        threadId: 'thread1',
         snippet: '',
-        isRead: false,
-        labels: ['INBOX']
-      };
+        isRead: false
+      });
+      // Remove the optional fields to test missing data handling
+      delete (mockMessage as any).subject;
+      delete (mockMessage as any).from;
+      delete (mockMessage as any).date;
 
       mockGmailClient.listMessages.mockResolvedValue([mockMessage]);
-
       const result = await gmailListMessagesTool.handler({});
+      const text = testHelpers.expectSuccessResult(result);
 
-      expect(result.content[0].text).toContain('Subject: No subject');
-      expect(result.content[0].text).toContain('From: Unknown sender');
-      expect(result.content[0].text).toContain('Date: No date');
-      expect(result.content[0].text).toContain('[UNREAD]');
+      expect(text).toContain('Subject: No subject');
+      expect(text).toContain('From: Unknown sender');
+      expect(text).toContain('Date: No date');
+      expect(text).toContain('[UNREAD]');
     });
 
     test('separates multiple messages with divider', async () => {
-      const mockMessages: GmailMessage[] = [
-        {
-          id: '1',
-          threadId: 'thread1',
-          snippet: 'First message',
-          subject: 'First',
-          from: 'first@example.com',
-          isRead: true,
-          labels: ['INBOX']
-        },
-        {
-          id: '2',
-          threadId: 'thread2',
-          snippet: 'Second message',
-          subject: 'Second',
-          from: 'second@example.com',
-          isRead: true,
-          labels: ['INBOX']
-        }
+      const mockMessages = [
+        mockFactories.gmailMessage({ subject: 'First', from: 'first@example.com' }),
+        mockFactories.gmailMessage({ subject: 'Second', from: 'second@example.com' })
       ];
 
       mockGmailClient.listMessages.mockResolvedValue(mockMessages);
-
       const result = await gmailListMessagesTool.handler({});
+      const text = testHelpers.expectSuccessResult(result);
 
-      expect(result.content[0].text).toContain('---');
-      expect(result.content[0].text).toContain('First');
-      expect(result.content[0].text).toContain('Second');
+      expect(text).toContain('---');
+      expect(text).toContain('First');
+      expect(text).toContain('Second');
     });
   });
 
@@ -210,28 +178,21 @@ describe('Gmail List Messages Tool', () => {
       mockGmailClient.listMessages.mockRejectedValue(error);
 
       const result = await gmailListMessagesTool.handler({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content).toHaveLength(1);
-      expect(result.content[0].text).toContain('Error: Gmail API error');
+      testHelpers.expectErrorResult(result, 'Gmail API error');
     });
 
     test('handles unknown errors', async () => {
       mockGmailClient.listMessages.mockRejectedValue(new Error('Unknown error'));
 
       const result = await gmailListMessagesTool.handler({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error: Unknown error');
+      testHelpers.expectErrorResult(result, 'Unknown error');
     });
 
     test('handles non-Error objects', async () => {
       mockGmailClient.listMessages.mockRejectedValue('String error');
 
       const result = await gmailListMessagesTool.handler({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error: Unknown error');
+      testHelpers.expectErrorResult(result, 'Unknown error');
     });
   });
 });
