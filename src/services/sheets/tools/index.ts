@@ -9,3 +9,4 @@ export { createSpreadsheet, createSpreadsheetSchema } from './createSpreadsheet'
 export { getData, getDataSchema } from './getData';
 export { updateCells, updateCellsSchema } from './updateCells';
 export { formatCells, formatCellsSchema } from './formatCells';
+export { calculate, sheetsCalculateTool } from './calculate';

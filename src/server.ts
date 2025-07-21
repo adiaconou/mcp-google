@@ -32,7 +32,7 @@ import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool, driveMoveFileTool } from './services/drive/tools/index';
-import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells } from './services/sheets/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells, sheetsCalculateTool, calculate } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -346,6 +346,21 @@ export class GoogleMCPServer {
       description: formatCellsSchema.description,
       inputSchema: formatCellsSchema.inputSchema,
       handler: formatCells
+    });
+    toolRegistry.register({
+      name: sheetsCalculateTool.name,
+      description: sheetsCalculateTool.description,
+      inputSchema: sheetsCalculateTool.inputSchema,
+      handler: async (params: unknown) => {
+        const result = await calculate(params as any);
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2)
+          }],
+          isError: false
+        };
+      }
     });
   }
 

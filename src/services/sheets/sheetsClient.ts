@@ -112,6 +112,18 @@ export interface SheetsFormatParams {
 }
 
 /**
+ * Parameters for calculating formulas and aggregations in a spreadsheet
+ */
+export interface SheetsCalculateParams {
+  spreadsheetId: string;
+  operation: 'formula' | 'aggregate';
+  range?: string;
+  formula?: string;
+  aggregateFunction?: 'SUM' | 'AVERAGE' | 'COUNT' | 'MAX' | 'MIN';
+  outputRange?: string;
+}
+
+/**
  * Response from getting spreadsheet data
  */
 export interface SheetsDataResponse {
@@ -541,6 +553,216 @@ export class SheetsClient {
 
     } catch (error) {
       throw this.handleApiError(error, 'format cells');
+    }
+  }
+
+  /**
+   * Perform calculations and formula operations in a Google Sheets spreadsheet
+   * @param params - Parameters for the calculation operation
+   * @returns Promise resolving to the calculation results
+   * @throws {Error} If the request fails
+   */
+  async calculate(params: SheetsCalculateParams): Promise<{ result: any; operation: string; range?: string }> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Validate required parameters
+      this.validateCalculateParams(params);
+
+      console.error(`Performing ${params.operation} operation in spreadsheet: ${params.spreadsheetId}`);
+
+      if (params.operation === 'formula') {
+        return await this.executeFormulaOperation(sheets, params);
+      } else {
+        return await this.executeAggregateOperation(sheets, params);
+      }
+
+    } catch (error) {
+      throw this.handleCalculateError(error, params.operation);
+    }
+  }
+
+  /**
+   * Validate parameters for calculate operation
+   * @param params - Parameters to validate
+   * @throws {Error} If validation fails
+   */
+  private validateCalculateParams(params: SheetsCalculateParams): void {
+    if (!params.spreadsheetId?.trim()) {
+      throw new Error('Spreadsheet ID is required and must be a string');
+    }
+
+    if (!params.operation || !['formula', 'aggregate'].includes(params.operation)) {
+      throw new Error('Operation must be either "formula" or "aggregate"');
+    }
+
+    if (params.operation === 'formula') {
+      if (!params.formula?.trim()) {
+        throw new Error('Formula is required for formula operations');
+      }
+      if (!params.outputRange?.trim()) {
+        throw new Error('Output range is required for formula operations');
+      }
+    }
+
+    if (params.operation === 'aggregate') {
+      if (!params.range?.trim()) {
+        throw new Error('Range is required for aggregate operations');
+      }
+      if (!params.aggregateFunction || !['SUM', 'AVERAGE', 'COUNT', 'MAX', 'MIN'].includes(params.aggregateFunction)) {
+        throw new Error('Aggregate function must be one of: SUM, AVERAGE, COUNT, MAX, MIN');
+      }
+    }
+
+    // Validate range formats if provided
+    if (params.range && !/^[A-Z]+[0-9]*:[A-Z]+[0-9]*$|^[A-Z]+[0-9]+$/.test(params.range.trim())) {
+      throw new Error('Invalid range format. Use A1 notation (e.g., A1:B2, A1:Z100)');
+    }
+
+    if (params.outputRange && !/^[A-Z]+[0-9]+$/.test(params.outputRange.trim())) {
+      throw new Error('Invalid output range format. Use A1 notation (e.g., A1)');
+    }
+  }
+
+  /**
+   * Execute formula operation
+   * @param sheets - Sheets API client
+   * @param params - Calculate parameters
+   * @returns Promise resolving to formula result
+   */
+  private async executeFormulaOperation(sheets: sheets_v4.Sheets, params: SheetsCalculateParams): Promise<{ result: any; operation: string; range?: string }> {
+    if (!params.formula || !params.outputRange) {
+      throw new Error('Formula and output range are required for formula operations');
+    }
+
+    // Apply the formula to the output range
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: params.spreadsheetId,
+      range: params.outputRange,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[params.formula]]
+      }
+    });
+
+    // Get the calculated result
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: params.spreadsheetId,
+      range: params.outputRange,
+      valueRenderOption: 'FORMATTED_VALUE'
+    });
+
+    const result = response.data.values?.[0]?.[0] || null;
+
+    console.error(`Formula operation completed: ${params.formula} = ${result}`);
+
+    return {
+      result: result,
+      operation: 'formula',
+      range: params.outputRange
+    };
+  }
+
+  /**
+   * Execute aggregate operation
+   * @param sheets - Sheets API client
+   * @param params - Calculate parameters
+   * @returns Promise resolving to aggregate result
+   */
+  private async executeAggregateOperation(sheets: sheets_v4.Sheets, params: SheetsCalculateParams): Promise<{ result: any; operation: string; range?: string }> {
+    if (!params.range || !params.aggregateFunction) {
+      throw new Error('Range and aggregate function are required for aggregate operations');
+    }
+
+    // Build the formula based on the aggregate function
+    let formula: string;
+    switch (params.aggregateFunction) {
+      case 'SUM':
+        formula = `=SUM(${params.range})`;
+        break;
+      case 'AVERAGE':
+        formula = `=AVERAGE(${params.range})`;
+        break;
+      case 'COUNT':
+        formula = `=COUNT(${params.range})`;
+        break;
+      case 'MAX':
+        formula = `=MAX(${params.range})`;
+        break;
+      case 'MIN':
+        formula = `=MIN(${params.range})`;
+        break;
+      default:
+        throw new Error(`Unsupported aggregate function: ${params.aggregateFunction}`);
+    }
+
+    // Use a temporary cell to calculate the result
+    const tempRange = params.outputRange || 'Z1000';
+    
+    // Apply the formula to get the result
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: params.spreadsheetId,
+      range: tempRange,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[formula]]
+      }
+    });
+
+    // Get the calculated result
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: params.spreadsheetId,
+      range: tempRange,
+      valueRenderOption: 'FORMATTED_VALUE'
+    });
+
+    const result = response.data.values?.[0]?.[0] || null;
+
+    // Clear the temporary cell if we used one
+    if (!params.outputRange) {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: params.spreadsheetId,
+        range: tempRange
+      });
+    }
+
+    console.error(`Aggregate operation completed: ${params.aggregateFunction}(${params.range}) = ${result}`);
+
+    return {
+      result: result,
+      operation: 'aggregate',
+      range: params.range
+    };
+  }
+
+  /**
+   * Handle calculate operation errors
+   * @param error - The error from the operation
+   * @param operation - Description of the operation that failed
+   * @returns Error with appropriate message
+   */
+  private handleCalculateError(error: unknown, operation: string): Error {
+    console.error(`Calculate operation error during ${operation}:`, error);
+
+    if (error instanceof Error) {
+      return error;
+    }
+
+    const err = error as { code?: number | string; message?: string };
+
+    switch (err.code) {
+      case 401:
+        return new Error('Authentication failed. Please re-authenticate.');
+      case 403:
+        return new Error('Insufficient permissions for Sheets access.');
+      case 429:
+        return new Error('Rate limit exceeded. Please try again later.');
+      case 404:
+        return new Error(`Spreadsheet not found during ${operation}.`);
+      case 400:
+        return new Error(`Invalid request for ${operation}: ${err.message}`);
+      default:
+        return new Error(`Failed to ${operation}: ${err.message || 'Unknown error'}`);
     }
   }
 

@@ -5,8 +5,8 @@
  * More comprehensive tests will be added in subsequent phases.
  */
 
-import { GoogleMCPServer } from '../../dist/server.js';
-import { toolRegistry } from '../../dist/utils/toolRegistry.js';
+import { GoogleMCPServer } from '../../src/server';
+import { toolRegistry } from '../../src/utils/toolRegistry';
 
 describe('GoogleMCPServer', () => {
   let server: GoogleMCPServer;
@@ -30,7 +30,7 @@ describe('GoogleMCPServer', () => {
   test('should have correct status after initialization', () => {
     const status = server.getStatus();
     expect(status.running).toBe(true);
-    expect(status.toolCount).toBe(15); // 2 Calendar + 4 Gmail + 5 Drive + 4 Sheets = 15 tools
+    expect(status.toolCount).toBe(16); // 2 Calendar + 4 Gmail + 5 Drive + 5 Sheets = 16 tools
     expect(status.tools).toContain('calendar_list_events');
     expect(status.tools).toContain('calendar_create_event');
     expect(status.tools).toContain('gmail_list_messages');
@@ -46,6 +46,7 @@ describe('GoogleMCPServer', () => {
     expect(status.tools).toContain('sheets_get_data');
     expect(status.tools).toContain('sheets_update_cells');
     expect(status.tools).toContain('sheets_format_cells');
+    expect(status.tools).toContain('sheets_calculate');
   });
 
   test('should register calendar tools correctly', () => {
