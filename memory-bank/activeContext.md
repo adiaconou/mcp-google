@@ -1,19 +1,20 @@
 # Active Context - Current Work Focus
 
-## Current Phase: Phase 4 Complete - Drive Integration Finished
+## Current Phase: Phase 6 Nearly Complete - Sheets Integration 80% Finished
 
 ### What We're Working On Now
-**Phase 4 (Drive Integration) is now COMPLETE** with all Drive tools implemented and working. The project has successfully implemented **10 MCP tools across 3 Google services** (Calendar, Gmail, Drive) with comprehensive document processing capabilities. **This is a personal productivity tool** designed specifically for managing your personal Google account through AI assistance.
+**Phase 6 (Sheets Integration) is 80% COMPLETE** with 4 of 5 Sheets tools implemented and working. The project has successfully implemented **15 MCP tools across 4 Google services** (Calendar, Gmail, Drive, Sheets) with comprehensive document processing and screenshot capabilities. **This is a personal productivity tool** designed specifically for managing your personal Google account through AI assistance.
 
-**Next Priority**: Phase 5 (Docs Integration) or Phase 7 (Production Hardening) - architecture is proven and ready for expansion.
+**Current Priority**: Complete final `sheets_calculate` tool to finish Phase 6, then proceed to Phase 7 (Production Hardening) or Phase 5 (Docs Integration).
 
-### Recent Changes - Phase 4 Drive Integration Complete
-- ✅ **Drive API Client**: Full implementation with file operations (`src/services/drive/driveClient.ts`)
-- ✅ **4 Drive Tools**: list_files, get_file, upload_file, create_folder all working
-- ✅ **Document Processing**: PDF and DOCX parsing with mammoth and pdf-parse libraries
-- ✅ **Security Policy**: PDF/DOCX only attachment downloads for security and productivity focus
-- ✅ **Advanced File Handling**: Metadata extraction, content parsing, intelligent formatting
-- ✅ **Comprehensive Testing**: Unit and integration tests for all Drive functionality
+### Recent Changes - Phase 6 Sheets Integration Nearly Complete
+- ✅ **Sheets API Client**: Full implementation with spreadsheet operations (`src/services/sheets/sheetsClient.ts`)
+- ✅ **4 Sheets Tools**: create_spreadsheet, get_data, update_cells, format_cells all working
+- ✅ **Advanced Formatting**: Cell styling, filters, sorting, conditional formatting, number formats
+- ✅ **Gmail Enhancement**: Added `gmail_export_email_screenshot` tool with Puppeteer integration
+- ✅ **Drive Enhancement**: Added `drive_move_file` tool for complete file management
+- ✅ **Comprehensive Testing**: Unit and integration tests for all new functionality
+- 🔄 **Remaining**: `sheets_calculate` tool (final tool for Phase 6 completion)
 
 ### Implementation Status - Proven Architecture
 
@@ -38,21 +39,23 @@
 
 #### Phase 4: Drive Integration ✅ COMPLETE
 - [x] Drive API client with file operations
-- [x] 4 Drive tools: list_files, get_file, upload_file, create_folder
+- [x] 5 Drive tools: list_files, get_file, upload_file, create_folder, move_file
 - [x] Document parsing: PDF text extraction, DOCX content extraction
 - [x] Advanced file metadata and content handling
 - [x] Worker-based processing for large files
 
-#### Phase 5: Docs Integration 🔄 PARTIALLY IMPLEMENTED
+#### Phase 5: Docs Integration 📋 PLANNED
 - [ ] Docs API client integration
 - [ ] Document creation and editing tools
 - [ ] Content manipulation and formatting
 - [ ] Document collaboration features
 
-#### Phase 6: Sheets Integration 📋 PLANNED
-- [ ] Sheets API client integration
-- [ ] Spreadsheet manipulation tools
-- [ ] Data analysis and calculation features
+#### Phase 6: Sheets Integration 🔄 80% COMPLETE
+- [x] Sheets API client integration
+- [x] 4 Sheets tools: create_spreadsheet, get_data, update_cells, format_cells
+- [x] Advanced formatting: styling, filters, sorting, conditional formatting
+- [x] Comprehensive error handling and OAuth integration
+- [ ] Final tool: sheets_calculate (formulas and aggregations)
 
 #### Phase 7: Production Hardening 🔄 ONGOING
 - [x] Comprehensive error handling across all services
@@ -65,9 +68,10 @@
 ## Current Technical Status
 
 ### Working Components ✅
-- **10 MCP Tools**: 2 Calendar + 4 Gmail + 4 Drive tools all functional
-- **Multi-Service OAuth**: Handles Calendar, Gmail, Drive scopes seamlessly
+- **15 MCP Tools**: 2 Calendar + 5 Gmail + 5 Drive + 4 Sheets tools all functional
+- **Multi-Service OAuth**: Handles Calendar, Gmail, Drive, Sheets scopes seamlessly
 - **Document Processing**: PDF and DOCX parsing with intelligent content extraction
+- **Screenshot Capabilities**: Advanced email screenshot capture with Puppeteer
 - **MCP Server**: Full stdio transport with comprehensive error handling
 - **Security Framework**: PDF/DOCX only downloads, input validation, scope management
 
@@ -97,12 +101,20 @@
 - `gmail_get_message`: Read email content with thread support
 - `gmail_search_messages`: Advanced Gmail query syntax support
 - `gmail_download_attachment`: Secure PDF/DOCX only attachment downloads
+- `gmail_export_email_screenshot`: Advanced email screenshot capture with Puppeteer
 
 **Drive Service** (`src/services/drive/`)
 - `drive_list_files`: List files and folders with metadata
 - `drive_get_file`: Get file content with PDF/DOCX parsing
 - `drive_upload_file`: Upload files with metadata and sharing options
 - `drive_create_folder`: Create organized folder structures
+- `drive_move_file`: Move files between folders
+
+**Sheets Service** (`src/services/sheets/`)
+- `sheets_create_spreadsheet`: Create new spreadsheets with initial data and sharing
+- `sheets_get_data`: Read spreadsheet data with range and formatting options
+- `sheets_update_cells`: Update cell values with batch operations
+- `sheets_format_cells`: Apply formatting, filters, sorting, conditional formatting
 
 ### Document Processing Capabilities
 - **PDF Processing**: Text extraction with pdf-parse library
@@ -140,12 +152,12 @@
 
 ## Next Steps (Immediate)
 
-### Option A: Phase 5 - Docs Integration
-**Priority**: Complete Google Workspace core services
-- Implement Docs API client following Drive/Gmail patterns
-- Create document creation and editing tools
-- Add content manipulation and formatting capabilities
-- Extend document processing for Google Docs format
+### Option A: Complete Phase 6 - Final Sheets Tool
+**Priority**: Finish current phase with `sheets_calculate` tool
+- Implement formula validation and execution
+- Add data analysis and aggregation functions
+- Complete comprehensive Sheets integration
+- Finalize Phase 6 with full testing
 
 ### Option B: Phase 7 - Production Hardening
 **Priority**: Optimize and harden existing implementation
@@ -154,11 +166,12 @@
 - Enhance error recovery and retry logic
 - Add advanced logging and debugging capabilities
 
-### Option C: Sheets Integration
-**Priority**: Complete Google Workspace suite
-- Implement Sheets API client
-- Create spreadsheet manipulation tools
-- Add data analysis and calculation features
+### Option C: Phase 5 - Docs Integration
+**Priority**: Complete Google Workspace core services
+- Implement Docs API client following proven patterns
+- Create document creation and editing tools
+- Add content manipulation and formatting capabilities
+- Extend document processing for Google Docs format
 
 ## Dependencies and Current State
 
@@ -177,14 +190,15 @@
 ## Context for Future Sessions
 
 ### Key Files for Understanding Current State
-- `src/server.ts` - MCP server with all 10 tools registered
-- `src/services/*/` - Three complete service implementations
+- `src/server.ts` - MCP server with all 15 tools registered
+- `src/services/*/` - Four service implementations (Calendar, Gmail, Drive, Sheets)
 - `src/auth/oauthManager.ts` - Multi-service OAuth management
 - `src/utils/documentParser.ts` - Document processing capabilities
+- `src/services/gmail/emailRenderer.ts` - Email screenshot rendering
 - `tests/` - Comprehensive test coverage for all services
 
 ### Current Architecture Summary
-The project has successfully implemented a production-ready MCP server with 10 tools across 3 Google services. The incremental approach (Calendar → Gmail → Drive) has validated the architecture and established proven patterns for rapid service addition. Document processing capabilities and security policies are implemented and working. The system is ready for either Docs integration or production hardening focus.
+The project has successfully implemented a production-ready MCP server with 15 tools across 4 Google services. The incremental approach (Calendar → Gmail → Drive → Sheets) has validated the architecture and established proven patterns for rapid service addition. Advanced capabilities include document processing, email screenshot capture, and comprehensive spreadsheet manipulation. The system is ready for final Sheets tool completion, production hardening, or Docs integration.
 
 ### Implementation Approach Validated
 The value-first, incremental approach has been highly successful. Each service builds on proven patterns while adding new capabilities. The architecture scales well and maintains consistency across services. Ready for confident expansion to remaining Google services or production optimization.
