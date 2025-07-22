@@ -535,4 +535,141 @@ describe('Sheets Create Chart Tool', () => {
       expect(result.position).toBeUndefined();
     });
   });
+
+  describe('Axis Options', () => {
+    it('should create chart with custom axis titles', async () => {
+      const mockResult = {
+        chartId: 99999,
+        chartTitle: 'Custom Axis Chart',
+        chartType: 'LINE'
+      };
+
+      mockCreateChart.mockResolvedValue(mockResult);
+
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE' as const,
+        axisOptions: {
+          xAxis: {
+            title: 'Time Period'
+          },
+          yAxis: {
+            title: 'Revenue ($)'
+          }
+        }
+      };
+
+      await createChart(args);
+
+      expect(mockCreateChart).toHaveBeenCalledWith({
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE',
+        axisOptions: {
+          xAxis: {
+            title: 'Time Period'
+          },
+          yAxis: {
+            title: 'Revenue ($)'
+          }
+        }
+      });
+    });
+
+    it('should create chart with axis value ranges', async () => {
+      const mockResult = {
+        chartId: 11111,
+        chartTitle: 'Range Chart',
+        chartType: 'COLUMN'
+      };
+
+      mockCreateChart.mockResolvedValue(mockResult);
+
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'COLUMN' as const,
+        axisOptions: {
+          yAxis: {
+            minValue: 0,
+            maxValue: 100
+          }
+        }
+      };
+
+      await createChart(args);
+
+      expect(mockCreateChart).toHaveBeenCalledWith({
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'COLUMN',
+        axisOptions: {
+          yAxis: {
+            minValue: 0,
+            maxValue: 100
+          }
+        }
+      });
+    });
+
+    it('should validate axis options object structure', async () => {
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE' as const,
+        axisOptions: 'invalid' as any
+      };
+
+      await expect(createChart(args)).rejects.toThrow('Axis options must be an object if provided');
+    });
+
+    it('should validate X-axis title type', async () => {
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE' as const,
+        axisOptions: {
+          xAxis: {
+            title: 123 as any
+          }
+        }
+      };
+
+      await expect(createChart(args)).rejects.toThrow('X-axis title must be a string if provided');
+    });
+
+    it('should validate Y-axis minValue and maxValue relationship', async () => {
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE' as const,
+        axisOptions: {
+          yAxis: {
+            minValue: 100,
+            maxValue: 50
+          }
+        }
+      };
+
+      await expect(createChart(args)).rejects.toThrow('Y-axis minValue must be less than maxValue');
+    });
+
+    it('should validate axis format type', async () => {
+      const args = {
+        spreadsheetId: 'test-spreadsheet-id',
+        dataRange: 'A1:B10',
+        chartType: 'LINE' as const,
+        axisOptions: {
+          yAxis: {
+            format: {
+              type: 'INVALID' as any
+            }
+          }
+        }
+      };
+
+      await expect(createChart(args)).rejects.toThrow('Y-axis format type must be NUMBER, CURRENCY, PERCENT, or DATE');
+    });
+  });
 });

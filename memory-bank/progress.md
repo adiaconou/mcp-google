@@ -130,12 +130,13 @@ The project follows an incremental approach, implementing one Google service at 
 #### Completed Components
 - [x] **Sheets API Client**: Spreadsheet operations and data handling in `src/services/sheets/sheetsClient.ts`
 - [x] **OAuth Integration**: Extended OAuth manager to support Sheets scopes
-- [x] **Sheets Tools**: 5 tools implemented and tested
+- [x] **Sheets Tools**: 6 tools implemented and tested
   - `sheets_create_spreadsheet`: Create new spreadsheets with initial data and sharing
   - `sheets_get_data`: Read spreadsheet data with range and formatting options
   - `sheets_update_cells`: Update cell values with batch operations
   - `sheets_format_cells`: Apply formatting, filters, sorting, conditional formatting
-  - `sheets_create_chart`: Create charts and graphs with various chart types
+  - `sheets_calculate`: Perform calculations and formula operations
+  - `sheets_create_chart`: Create charts and graphs with enhanced axis customization
 - [x] **Advanced Formatting**: Cell styling, filters, sorting, conditional formatting, number formats
 - [x] **Chart Creation**: Line, bar, column, pie, scatter, and area charts with positioning
 - [x] **Comprehensive Testing**: Unit and integration tests for all implemented functionality

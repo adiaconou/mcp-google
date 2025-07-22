@@ -124,6 +124,24 @@ export interface SheetsCalculateParams {
 }
 
 /**
+ * Axis format options for charts
+ */
+export interface AxisFormatOptions {
+  type: 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE';
+  pattern?: string;
+}
+
+/**
+ * Axis options for chart customization
+ */
+export interface AxisOptions {
+  title?: string;
+  minValue?: number;
+  maxValue?: number;
+  format?: AxisFormatOptions;
+}
+
+/**
  * Parameters for creating a chart in a spreadsheet
  */
 export interface SheetsCreateChartParams {
@@ -135,6 +153,10 @@ export interface SheetsCreateChartParams {
   position?: {
     row: number;
     column: number;
+  };
+  axisOptions?: {
+    xAxis?: AxisOptions;
+    yAxis?: AxisOptions;
   };
 }
 
@@ -924,16 +946,7 @@ export class SheetsClient {
         chartSpec.basicChart = {
           chartType: 'LINE',
           legendPosition: 'BOTTOM_LEGEND',
-          axis: [
-            {
-              position: 'BOTTOM_AXIS',
-              title: 'X-Axis'
-            },
-            {
-              position: 'LEFT_AXIS',
-              title: 'Y-Axis'
-            }
-          ],
+          axis: this.buildAxisSpecs(params, 'LINE'),
           domains: [
             {
               domain: {
@@ -1170,6 +1183,113 @@ export class SheetsClient {
       domainRange,
       seriesRanges
     };
+  }
+
+  /**
+   * Build axis specifications for charts with custom options
+   * @param params - Chart creation parameters
+   * @param chartType - Type of chart being created
+   * @returns Array of axis specifications
+   */
+  private buildAxisSpecs(params: SheetsCreateChartParams, chartType: string): sheets_v4.Schema$BasicChartAxis[] {
+    const axes: sheets_v4.Schema$BasicChartAxis[] = [];
+
+    // Determine default axis titles based on chart type
+    let defaultXTitle = 'X-Axis';
+    let defaultYTitle = 'Y-Axis';
+
+    switch (chartType) {
+      case 'BAR':
+        defaultXTitle = 'Values';
+        defaultYTitle = 'Categories';
+        break;
+      case 'COLUMN':
+        defaultXTitle = 'Categories';
+        defaultYTitle = 'Values';
+        break;
+      case 'SCATTER':
+        defaultXTitle = 'X-Values';
+        defaultYTitle = 'Y-Values';
+        break;
+      case 'LINE':
+      case 'AREA':
+        defaultXTitle = 'X-Axis';
+        defaultYTitle = 'Y-Axis';
+        break;
+    }
+
+    // Build X-axis (bottom axis)
+    const xAxis: sheets_v4.Schema$BasicChartAxis = {
+      position: 'BOTTOM_AXIS',
+      title: params.axisOptions?.xAxis?.title || defaultXTitle
+    };
+
+    // Add X-axis range if specified
+    if (params.axisOptions?.xAxis?.minValue !== undefined || params.axisOptions?.xAxis?.maxValue !== undefined) {
+      xAxis.viewWindowOptions = {};
+      if (params.axisOptions.xAxis.minValue !== undefined) {
+        xAxis.viewWindowOptions.viewWindowMin = params.axisOptions.xAxis.minValue;
+      }
+      if (params.axisOptions.xAxis.maxValue !== undefined) {
+        xAxis.viewWindowOptions.viewWindowMax = params.axisOptions.xAxis.maxValue;
+      }
+    }
+
+    axes.push(xAxis);
+
+    // Build Y-axis (left axis)
+    const yAxis: sheets_v4.Schema$BasicChartAxis = {
+      position: 'LEFT_AXIS',
+      title: params.axisOptions?.yAxis?.title || defaultYTitle
+    };
+
+    // Add Y-axis range if specified
+    if (params.axisOptions?.yAxis?.minValue !== undefined || params.axisOptions?.yAxis?.maxValue !== undefined) {
+      yAxis.viewWindowOptions = {};
+      if (params.axisOptions.yAxis.minValue !== undefined) {
+        yAxis.viewWindowOptions.viewWindowMin = params.axisOptions.yAxis.minValue;
+      }
+      if (params.axisOptions.yAxis.maxValue !== undefined) {
+        yAxis.viewWindowOptions.viewWindowMax = params.axisOptions.yAxis.maxValue;
+      }
+    }
+
+    axes.push(yAxis);
+
+    return axes;
+  }
+
+  /**
+   * Build number format for axis
+   * @param format - Axis format options
+   * @returns NumberFormat object for axis
+   */
+  private buildAxisNumberFormat(format: AxisFormatOptions): sheets_v4.Schema$NumberFormat {
+    const numberFormat: sheets_v4.Schema$NumberFormat = {
+      type: format.type
+    };
+
+    if (format.pattern) {
+      numberFormat.pattern = format.pattern;
+    } else {
+      // Set default patterns based on type
+      switch (format.type) {
+        case 'CURRENCY':
+          numberFormat.pattern = '$#,##0.00';
+          break;
+        case 'PERCENT':
+          numberFormat.pattern = '0.00%';
+          break;
+        case 'DATE':
+          numberFormat.pattern = 'M/d/yyyy';
+          break;
+        case 'NUMBER':
+          numberFormat.pattern = '#,##0.00';
+          break;
+      }
+    }
+
+    return numberFormat;
   }
 
   /**

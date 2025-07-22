@@ -21,6 +21,26 @@ interface SheetsCreateChartArgs {
     row: number;
     column: number;
   };
+  axisOptions?: {
+    xAxis?: {
+      title?: string;
+      minValue?: number;
+      maxValue?: number;
+      format?: {
+        type: 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE';
+        pattern?: string;
+      };
+    };
+    yAxis?: {
+      title?: string;
+      minValue?: number;
+      maxValue?: number;
+      format?: {
+        type: 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE';
+        pattern?: string;
+      };
+    };
+  };
 }
 
 /**
@@ -84,6 +104,63 @@ export async function createChart(args: SheetsCreateChartArgs): Promise<{
     }
   }
 
+  // Validate axis options if provided
+  if (args.axisOptions) {
+    if (typeof args.axisOptions !== 'object' || args.axisOptions === null) {
+      throw new Error('Axis options must be an object if provided');
+    }
+
+    // Validate X-axis options
+    if (args.axisOptions.xAxis) {
+      const xAxis = args.axisOptions.xAxis;
+      if (xAxis.title && typeof xAxis.title !== 'string') {
+        throw new Error('X-axis title must be a string if provided');
+      }
+      if (xAxis.minValue !== undefined && typeof xAxis.minValue !== 'number') {
+        throw new Error('X-axis minValue must be a number if provided');
+      }
+      if (xAxis.maxValue !== undefined && typeof xAxis.maxValue !== 'number') {
+        throw new Error('X-axis maxValue must be a number if provided');
+      }
+      if (xAxis.minValue !== undefined && xAxis.maxValue !== undefined && xAxis.minValue >= xAxis.maxValue) {
+        throw new Error('X-axis minValue must be less than maxValue');
+      }
+      if (xAxis.format) {
+        if (!['NUMBER', 'CURRENCY', 'PERCENT', 'DATE'].includes(xAxis.format.type)) {
+          throw new Error('X-axis format type must be NUMBER, CURRENCY, PERCENT, or DATE');
+        }
+        if (xAxis.format.pattern && typeof xAxis.format.pattern !== 'string') {
+          throw new Error('X-axis format pattern must be a string if provided');
+        }
+      }
+    }
+
+    // Validate Y-axis options
+    if (args.axisOptions.yAxis) {
+      const yAxis = args.axisOptions.yAxis;
+      if (yAxis.title && typeof yAxis.title !== 'string') {
+        throw new Error('Y-axis title must be a string if provided');
+      }
+      if (yAxis.minValue !== undefined && typeof yAxis.minValue !== 'number') {
+        throw new Error('Y-axis minValue must be a number if provided');
+      }
+      if (yAxis.maxValue !== undefined && typeof yAxis.maxValue !== 'number') {
+        throw new Error('Y-axis maxValue must be a number if provided');
+      }
+      if (yAxis.minValue !== undefined && yAxis.maxValue !== undefined && yAxis.minValue >= yAxis.maxValue) {
+        throw new Error('Y-axis minValue must be less than maxValue');
+      }
+      if (yAxis.format) {
+        if (!['NUMBER', 'CURRENCY', 'PERCENT', 'DATE'].includes(yAxis.format.type)) {
+          throw new Error('Y-axis format type must be NUMBER, CURRENCY, PERCENT, or DATE');
+        }
+        if (yAxis.format.pattern && typeof yAxis.format.pattern !== 'string') {
+          throw new Error('Y-axis format pattern must be a string if provided');
+        }
+      }
+    }
+  }
+
   // Build parameters object with proper typing
   const params: {
     spreadsheetId: string;
@@ -94,6 +171,26 @@ export async function createChart(args: SheetsCreateChartArgs): Promise<{
     position?: {
       row: number;
       column: number;
+    };
+    axisOptions?: {
+      xAxis?: {
+        title?: string;
+        minValue?: number;
+        maxValue?: number;
+        format?: {
+          type: 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE';
+          pattern?: string;
+        };
+      };
+      yAxis?: {
+        title?: string;
+        minValue?: number;
+        maxValue?: number;
+        format?: {
+          type: 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE';
+          pattern?: string;
+        };
+      };
     };
   } = {
     spreadsheetId: args.spreadsheetId.trim(),
@@ -112,6 +209,9 @@ export async function createChart(args: SheetsCreateChartArgs): Promise<{
       row: args.position.row,
       column: args.position.column
     };
+  }
+  if (args.axisOptions) {
+    params.axisOptions = args.axisOptions;
   }
 
   try {
@@ -153,7 +253,7 @@ export async function createChart(args: SheetsCreateChartArgs): Promise<{
  */
 export const sheetsCreateChartTool: MCPTool = {
   name: 'sheets_create_chart',
-  description: 'Create charts and graphs in Google Sheets spreadsheets. Supports line, bar, column, pie, scatter, and area charts with customizable positioning and titles.',
+  description: 'Create charts and graphs in Google Sheets spreadsheets. Supports line, bar, column, pie, scatter, and area charts with customizable positioning, titles, and axis options including custom titles, value ranges, and number formatting.',
   inputSchema: {
     type: 'object',
     required: ['spreadsheetId', 'dataRange', 'chartType'],
@@ -193,6 +293,80 @@ export const sheetsCreateChartTool: MCPTool = {
         },
         required: ['row', 'column'],
         description: 'Optional position for chart placement. If not provided, the chart will be placed at the top-left corner (0,0).'
+      },
+      axisOptions: {
+        type: 'object',
+        properties: {
+          xAxis: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                description: 'Custom title for the X-axis'
+              },
+              minValue: {
+                type: 'number',
+                description: 'Minimum value for the X-axis range'
+              },
+              maxValue: {
+                type: 'number',
+                description: 'Maximum value for the X-axis range'
+              },
+              format: {
+                type: 'object',
+                properties: {
+                  type: {
+                    type: 'string',
+                    enum: ['NUMBER', 'CURRENCY', 'PERCENT', 'DATE'],
+                    description: 'Format type for X-axis values'
+                  },
+                  pattern: {
+                    type: 'string',
+                    description: 'Custom format pattern (e.g., "$#,##0.00" for currency)'
+                  }
+                },
+                required: ['type'],
+                description: 'Number format options for X-axis values'
+              }
+            },
+            description: 'Customization options for the X-axis'
+          },
+          yAxis: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                description: 'Custom title for the Y-axis'
+              },
+              minValue: {
+                type: 'number',
+                description: 'Minimum value for the Y-axis range'
+              },
+              maxValue: {
+                type: 'number',
+                description: 'Maximum value for the Y-axis range'
+              },
+              format: {
+                type: 'object',
+                properties: {
+                  type: {
+                    type: 'string',
+                    enum: ['NUMBER', 'CURRENCY', 'PERCENT', 'DATE'],
+                    description: 'Format type for Y-axis values'
+                  },
+                  pattern: {
+                    type: 'string',
+                    description: 'Custom format pattern (e.g., "$#,##0.00" for currency)'
+                  }
+                },
+                required: ['type'],
+                description: 'Number format options for Y-axis values'
+              }
+            },
+            description: 'Customization options for the Y-axis'
+          }
+        },
+        description: 'Optional axis customization options including titles, ranges, and formatting'
       }
     }
   }
