@@ -30,7 +30,7 @@ describe('GoogleMCPServer', () => {
   test('should have correct status after initialization', () => {
     const status = server.getStatus();
     expect(status.running).toBe(true);
-    expect(status.toolCount).toBe(16); // 2 Calendar + 4 Gmail + 5 Drive + 5 Sheets = 16 tools
+    expect(status.toolCount).toBe(17); // 2 Calendar + 4 Gmail + 5 Drive + 6 Sheets = 17 tools
     expect(status.tools).toContain('calendar_list_events');
     expect(status.tools).toContain('calendar_create_event');
     expect(status.tools).toContain('gmail_list_messages');
@@ -47,6 +47,7 @@ describe('GoogleMCPServer', () => {
     expect(status.tools).toContain('sheets_update_cells');
     expect(status.tools).toContain('sheets_format_cells');
     expect(status.tools).toContain('sheets_calculate');
+    expect(status.tools).toContain('sheets_create_chart');
   });
 
   test('should register calendar tools correctly', () => {

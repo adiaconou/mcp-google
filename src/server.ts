@@ -32,7 +32,7 @@ import { toolRegistry } from './utils/toolRegistry';
 import { calendarListEventsTool, calendarCreateEventTool } from './services/calendar/tools/index';
 import { gmailListMessagesTool, gmailGetMessageTool, gmailDownloadAttachmentTool, exportEmailScreenshotTool } from './services/gmail/tools/index';
 import { driveListFilesTool, driveGetFileTool, driveUploadFileTool, driveCreateFolderTool, driveMoveFileTool } from './services/drive/tools/index';
-import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells, sheetsCalculateTool, calculate } from './services/sheets/tools/index';
+import { createSpreadsheetSchema, createSpreadsheet, getDataSchema, getData, updateCellsSchema, updateCells, formatCellsSchema, formatCells, sheetsCalculateTool, calculate, sheetsCreateChartTool, createChart } from './services/sheets/tools/index';
 import { oauthManager } from './auth/oauthManager';
 
 /**
@@ -353,6 +353,21 @@ export class GoogleMCPServer {
       inputSchema: sheetsCalculateTool.inputSchema,
       handler: async (params: unknown) => {
         const result = await calculate(params as any);
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2)
+          }],
+          isError: false
+        };
+      }
+    });
+    toolRegistry.register({
+      name: sheetsCreateChartTool.name,
+      description: sheetsCreateChartTool.description,
+      inputSchema: sheetsCreateChartTool.inputSchema,
+      handler: async (params: unknown) => {
+        const result = await createChart(params as any);
         return {
           content: [{
             type: 'text' as const,

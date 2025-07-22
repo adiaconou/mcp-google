@@ -124,6 +124,21 @@ export interface SheetsCalculateParams {
 }
 
 /**
+ * Parameters for creating a chart in a spreadsheet
+ */
+export interface SheetsCreateChartParams {
+  spreadsheetId: string;
+  dataRange: string;
+  chartType: 'LINE' | 'BAR' | 'COLUMN' | 'PIE' | 'SCATTER' | 'AREA';
+  title?: string;
+  sheetId?: number;
+  position?: {
+    row: number;
+    column: number;
+  };
+}
+
+/**
  * Response from getting spreadsheet data
  */
 export interface SheetsDataResponse {
@@ -764,6 +779,421 @@ export class SheetsClient {
       default:
         return new Error(`Failed to ${operation}: ${err.message || 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Create a chart in a Google Sheets spreadsheet
+   * @param params - Parameters for creating the chart
+   * @returns Promise resolving to the chart creation result
+   * @throws {CalendarError} If the request fails
+   */
+  async createChart(params: SheetsCreateChartParams): Promise<{ chartId: number; chartTitle: string; chartType: string }> {
+    try {
+      const sheets = await this.ensureInitialized();
+      
+      // Validate required parameters
+      this.validateCreateChartParams(params);
+
+      console.error(`Creating chart in spreadsheet: ${params.spreadsheetId}`);
+
+      // Get sheet ID for the chart placement
+      const sheetId = params.sheetId ?? await this.getSheetIdFromRange(params.spreadsheetId, params.dataRange);
+
+      // Parse data range to get source range
+      const sourceRange = this.parseRangeToGridRange(params.dataRange, sheetId);
+
+      // Build chart specification
+      const chartSpec = this.buildChartSpec(params, sourceRange);
+
+      // Determine chart position
+      const position = this.buildChartPosition(params, sheetId);
+
+      // Create the chart request
+      const addChartRequest: sheets_v4.Schema$Request = {
+        addChart: {
+          chart: {
+            spec: chartSpec,
+            position: position
+          }
+        }
+      };
+
+      // Execute the batch update to add the chart
+      const response = await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: params.spreadsheetId,
+        requestBody: {
+          requests: [addChartRequest]
+        }
+      });
+
+      if (!response.data?.replies?.[0]?.addChart?.chart) {
+        throw new Error('No chart data returned from Sheets API');
+      }
+
+      const chart = response.data.replies[0].addChart.chart;
+      const chartId = chart.chartId || 0;
+      const chartTitle = params.title || `${params.chartType} Chart`;
+
+      console.error(`Chart created successfully with ID: ${chartId}`);
+      
+      return {
+        chartId: chartId,
+        chartTitle: chartTitle,
+        chartType: params.chartType
+      };
+
+    } catch (error) {
+      throw this.handleApiError(error, 'create chart');
+    }
+  }
+
+  /**
+   * Validate parameters for creating a chart
+   * @param params - Parameters to validate
+   * @throws {CalendarError} If validation fails
+   */
+  private validateCreateChartParams(params: SheetsCreateChartParams): void {
+    if (!params.spreadsheetId?.trim()) {
+      throw new CalendarError('Spreadsheet ID is required', MCPErrorCode.ValidationError);
+    }
+
+    if (!params.dataRange?.trim()) {
+      throw new CalendarError('Data range is required', MCPErrorCode.ValidationError);
+    }
+
+    // Validate data range format
+    const range = params.dataRange.trim();
+    if (!/^[A-Z]+[0-9]*:[A-Z]+[0-9]*$|^[A-Z]+[0-9]+$/.test(range.replace(/^[^!]*!/, ''))) {
+      throw new CalendarError(
+        'Invalid data range format. Use A1 notation (e.g., A1:B10, Sheet1!A1:B10)',
+        MCPErrorCode.ValidationError
+      );
+    }
+
+    // Validate chart type
+    const validChartTypes = ['LINE', 'BAR', 'COLUMN', 'PIE', 'SCATTER', 'AREA'];
+    if (!validChartTypes.includes(params.chartType)) {
+      throw new CalendarError(
+        `Invalid chart type. Must be one of: ${validChartTypes.join(', ')}`,
+        MCPErrorCode.ValidationError
+      );
+    }
+
+    // Validate title if provided
+    if (params.title && params.title.length > 100) {
+      throw new CalendarError('Chart title cannot exceed 100 characters', MCPErrorCode.ValidationError);
+    }
+
+    // Validate sheet ID if provided
+    if (params.sheetId !== undefined && params.sheetId < 0) {
+      throw new CalendarError('Sheet ID must be a non-negative number', MCPErrorCode.ValidationError);
+    }
+
+    // Validate position if provided
+    if (params.position) {
+      if (params.position.row < 0 || params.position.column < 0) {
+        throw new CalendarError('Chart position row and column must be non-negative', MCPErrorCode.ValidationError);
+      }
+    }
+  }
+
+  /**
+   * Build chart specification based on chart type and parameters
+   * @param params - Chart creation parameters
+   * @param sourceRange - Data source range
+   * @returns Chart specification object
+   */
+  private buildChartSpec(params: SheetsCreateChartParams, sourceRange: sheets_v4.Schema$GridRange): sheets_v4.Schema$ChartSpec {
+    const title = params.title || `${params.chartType} Chart`;
+
+    // Split the source range into domain and series ranges
+    const { domainRange, seriesRanges } = this.splitChartSourceRanges(sourceRange);
+
+    // Base chart spec
+    const chartSpec: sheets_v4.Schema$ChartSpec = {
+      title: title,
+      titleTextFormat: {
+        fontSize: 16,
+        bold: true
+      }
+    };
+
+    // Configure chart type-specific properties
+    switch (params.chartType) {
+      case 'LINE':
+        chartSpec.basicChart = {
+          chartType: 'LINE',
+          legendPosition: 'BOTTOM_LEGEND',
+          axis: [
+            {
+              position: 'BOTTOM_AXIS',
+              title: 'X-Axis'
+            },
+            {
+              position: 'LEFT_AXIS',
+              title: 'Y-Axis'
+            }
+          ],
+          domains: [
+            {
+              domain: {
+                sourceRange: {
+                  sources: [domainRange]
+                }
+              }
+            }
+          ],
+          series: seriesRanges.map(range => ({
+            series: {
+              sourceRange: {
+                sources: [range]
+              }
+            },
+            targetAxis: 'LEFT_AXIS'
+          }))
+        };
+        break;
+
+      case 'BAR':
+        chartSpec.basicChart = {
+          chartType: 'BAR',
+          legendPosition: 'BOTTOM_LEGEND',
+          axis: [
+            {
+              position: 'BOTTOM_AXIS',
+              title: 'Values'
+            },
+            {
+              position: 'LEFT_AXIS',
+              title: 'Categories'
+            }
+          ],
+          domains: [
+            {
+              domain: {
+                sourceRange: {
+                  sources: [domainRange]
+                }
+              }
+            }
+          ],
+          series: seriesRanges.map(range => ({
+            series: {
+              sourceRange: {
+                sources: [range]
+              }
+            },
+            targetAxis: 'BOTTOM_AXIS'
+          }))
+        };
+        break;
+
+      case 'COLUMN':
+        chartSpec.basicChart = {
+          chartType: 'COLUMN',
+          legendPosition: 'BOTTOM_LEGEND',
+          axis: [
+            {
+              position: 'BOTTOM_AXIS',
+              title: 'Categories'
+            },
+            {
+              position: 'LEFT_AXIS',
+              title: 'Values'
+            }
+          ],
+          domains: [
+            {
+              domain: {
+                sourceRange: {
+                  sources: [domainRange]
+                }
+              }
+            }
+          ],
+          series: seriesRanges.map(range => ({
+            series: {
+              sourceRange: {
+                sources: [range]
+              }
+            },
+            targetAxis: 'LEFT_AXIS'
+          }))
+        };
+        break;
+
+      case 'PIE':
+        // PIE charts use the original range structure but need proper domain/series split
+        chartSpec.pieChart = {
+          legendPosition: 'LABELED_LEGEND',
+          domain: {
+            sourceRange: {
+              sources: [domainRange]
+            }
+          },
+          series: {
+            sourceRange: {
+              sources: [seriesRanges[0] || domainRange]
+            }
+          }
+        };
+        break;
+
+      case 'SCATTER':
+        chartSpec.basicChart = {
+          chartType: 'SCATTER',
+          legendPosition: 'BOTTOM_LEGEND',
+          axis: [
+            {
+              position: 'BOTTOM_AXIS',
+              title: 'X-Values'
+            },
+            {
+              position: 'LEFT_AXIS',
+              title: 'Y-Values'
+            }
+          ],
+          domains: [
+            {
+              domain: {
+                sourceRange: {
+                  sources: [domainRange]
+                }
+              }
+            }
+          ],
+          series: seriesRanges.map(range => ({
+            series: {
+              sourceRange: {
+                sources: [range]
+              }
+            },
+            targetAxis: 'LEFT_AXIS'
+          }))
+        };
+        break;
+
+      case 'AREA':
+        chartSpec.basicChart = {
+          chartType: 'AREA',
+          legendPosition: 'BOTTOM_LEGEND',
+          stackedType: 'NOT_STACKED',
+          axis: [
+            {
+              position: 'BOTTOM_AXIS',
+              title: 'X-Axis'
+            },
+            {
+              position: 'LEFT_AXIS',
+              title: 'Y-Axis'
+            }
+          ],
+          domains: [
+            {
+              domain: {
+                sourceRange: {
+                  sources: [domainRange]
+                }
+              }
+            }
+          ],
+          series: seriesRanges.map(range => ({
+            series: {
+              sourceRange: {
+                sources: [range]
+              }
+            },
+            targetAxis: 'LEFT_AXIS'
+          }))
+        };
+        break;
+
+      default:
+        throw new CalendarError(`Unsupported chart type: ${params.chartType}`, MCPErrorCode.ValidationError);
+    }
+
+    return chartSpec;
+  }
+
+  /**
+   * Split chart source range into domain and series ranges
+   * @param sourceRange - The full data range
+   * @returns Object with domain range and series ranges
+   */
+  private splitChartSourceRanges(sourceRange: sheets_v4.Schema$GridRange): {
+    domainRange: sheets_v4.Schema$GridRange;
+    seriesRanges: sheets_v4.Schema$GridRange[];
+  } {
+    const { sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex } = sourceRange;
+    
+    if (sheetId === undefined || sheetId === null || 
+        startRowIndex === undefined || startRowIndex === null ||
+        endRowIndex === undefined || endRowIndex === null ||
+        startColumnIndex === undefined || startColumnIndex === null ||
+        endColumnIndex === undefined || endColumnIndex === null) {
+      throw new CalendarError('Invalid source range for chart', MCPErrorCode.ValidationError);
+    }
+
+    const numColumns = endColumnIndex - startColumnIndex;
+    
+    // If only one column, use it for both domain and series
+    if (numColumns <= 1) {
+      return {
+        domainRange: sourceRange,
+        seriesRanges: [sourceRange]
+      };
+    }
+
+    // Split into domain (first column) and series (remaining columns)
+    const domainRange: sheets_v4.Schema$GridRange = {
+      sheetId,
+      startRowIndex,
+      endRowIndex,
+      startColumnIndex,
+      endColumnIndex: startColumnIndex + 1
+    };
+
+    const seriesRanges: sheets_v4.Schema$GridRange[] = [];
+    
+    // Create a series range for each remaining column
+    for (let col = startColumnIndex + 1; col < endColumnIndex; col++) {
+      seriesRanges.push({
+        sheetId,
+        startRowIndex,
+        endRowIndex,
+        startColumnIndex: col,
+        endColumnIndex: col + 1
+      });
+    }
+
+    return {
+      domainRange,
+      seriesRanges
+    };
+  }
+
+  /**
+   * Build chart position specification
+   * @param params - Chart creation parameters
+   * @param sheetId - Target sheet ID
+   * @returns Chart position object
+   */
+  private buildChartPosition(params: SheetsCreateChartParams, sheetId: number): sheets_v4.Schema$EmbeddedObjectPosition {
+    const position: sheets_v4.Schema$EmbeddedObjectPosition = {
+      overlayPosition: {
+        anchorCell: {
+          sheetId: sheetId,
+          rowIndex: params.position?.row || 0,
+          columnIndex: params.position?.column || 0
+        },
+        offsetXPixels: 0,
+        offsetYPixels: 0,
+        widthPixels: 600,
+        heightPixels: 371
+      }
+    };
+
+    return position;
   }
 
   /**
